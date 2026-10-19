@@ -66,7 +66,7 @@ workoutRouter.put(
 );
 workoutRouter.post(
   '/plans/:id/approve',
-  requireRole('trainer'),
+  requireRole('trainer', 'running_coach', 'cycling_coach'),
   wrap(async (req, res) => {
     res.json(await service.approvePlan(req.auth!, idParam.parse(req.params).id));
   }),

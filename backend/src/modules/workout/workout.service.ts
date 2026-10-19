@@ -1,6 +1,7 @@
 import { PoolClient } from 'pg';
 import { pool } from '../../database/pool';
 import { AppError } from '../../shared/errors';
+import { Role } from '../auth/auth.repository';
 import { AccessTokenPayload } from '../auth/auth.service';
 import { CreateLogInput, CreatePlanInput, PlanContent } from './workout.schemas';
 
@@ -12,18 +13,26 @@ const num = (v: string | null) => (v === null ? null : Number(v));
 
 // ---------- acesso ----------
 
-async function isLinkedTrainer(trainerId: string, studentId: string, db: Db = pool): Promise<boolean> {
-  const { rowCount } = await db.query(
-    `SELECT 1 FROM trainer_student WHERE trainer_id = $1 AND student_id = $2 AND status = 'active'`,
-    [trainerId, studentId],
+// Quem pode prescrever musculação: o professor e os treinadores de corrida/ciclismo.
+const PRESCRIBER_ROLES: Role[] = ['trainer', 'running_coach', 'cycling_coach'];
+const isPrescriberRole = (role: Role) => PRESCRIBER_ROLES.includes(role);
+
+/** Vínculo ativo do profissional com o aluno em qualquer uma das três tabelas de vínculo. */
+async function hasActiveLink(coachId: string, studentId: string, db: Db = pool): Promise<boolean> {
+  const { rows } = await db.query<{ ok: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM trainer_student WHERE trainer_id = $1 AND student_id = $2 AND status = 'active')
+         OR EXISTS (SELECT 1 FROM running_coach_athlete WHERE running_coach_id = $1 AND athlete_id = $2 AND status = 'active')
+         OR EXISTS (SELECT 1 FROM cycling_coach_athlete WHERE cycling_coach_id = $1 AND athlete_id = $2 AND status = 'active')
+         AS ok`,
+    [coachId, studentId],
   );
-  return (rowCount ?? 0) > 0;
+  return rows[0].ok;
 }
 
-/** O aluno vê os próprios dados; o professor, os de alunos com vínculo ativo; o admin, tudo. */
+/** O aluno vê os próprios dados; o profissional, os de alunos com vínculo ativo; o admin, tudo. */
 async function canAccessStudent(auth: Auth, studentId: string): Promise<boolean> {
   if (auth.role === 'admin' || auth.sub === studentId) return true;
-  return auth.role === 'trainer' && isLinkedTrainer(auth.sub, studentId);
+  return isPrescriberRole(auth.role) && hasActiveLink(auth.sub, studentId);
 }
 
 // ---------- exercícios ----------
@@ -82,7 +91,7 @@ interface PlanRow {
   created_at: Date;
 }
 
-async function insertContent(db: Db, planId: string, days: PlanContent['days']) {
+async function assertExercisesExist(db: Db, days: PlanContent['days']) {
   const exerciseIds = [...new Set(days.flatMap((d) => d.sets.map((s) => s.exerciseId)))];
   const { rows } = await db.query<{ id: string }>('SELECT id FROM exercises WHERE id = ANY($1::uuid[])', [
     exerciseIds,
@@ -90,6 +99,10 @@ async function insertContent(db: Db, planId: string, days: PlanContent['days']) 
   if (rows.length !== exerciseIds.length) {
     throw new AppError(400, 'unknown_exercise', 'Um ou mais exercícios não existem');
   }
+}
+
+async function insertContent(db: Db, planId: string, days: PlanContent['days']) {
+  await assertExercisesExist(db, days);
 
   for (const day of days) {
     const { rows: dayRows } = await db.query<{ id: string }>(
@@ -119,14 +132,14 @@ async function assertCanView(auth: Auth, plan: PlanRow) {
     if (plan.status === 'draft' && plan.source !== 'self') throw notFound('Plano');
     return;
   }
-  if (plan.prescribed_by === auth.sub && auth.role === 'trainer' && (await isLinkedTrainer(auth.sub, plan.owner_id))) {
+  if (plan.prescribed_by === auth.sub && isPrescriberRole(auth.role) && (await hasActiveLink(auth.sub, plan.owner_id))) {
     return;
   }
   throw notFound('Plano');
 }
 
 function assertPrescriber(auth: Auth, plan: PlanRow) {
-  if (plan.prescribed_by !== auth.sub || auth.role !== 'trainer') throw notFound('Plano');
+  if (plan.prescribed_by !== auth.sub || !isPrescriberRole(auth.role)) throw notFound('Plano');
 }
 
 async function buildPlan(plan: PlanRow) {
@@ -185,9 +198,9 @@ export async function createPlan(auth: Auth, input: CreatePlanInput) {
   let source: 'trainer' | 'self';
   let status: 'draft' | 'active';
 
-  if (auth.role === 'trainer') {
+  if (isPrescriberRole(auth.role)) {
     if (!input.studentId) throw new AppError(400, 'student_required', 'Informe studentId');
-    if (!(await isLinkedTrainer(auth.sub, input.studentId))) {
+    if (!(await hasActiveLink(auth.sub, input.studentId))) {
       throw new AppError(403, 'not_linked', 'Você não tem vínculo ativo com este aluno');
     }
     // Fluxo de prescrição: nasce como rascunho e só chega ao aluno após aprovação.
@@ -238,11 +251,15 @@ export async function listPlans(auth: Auth, filter: { studentId?: string; status
     where.push(sql.replace('?', `$${params.length}`));
   };
 
-  if (auth.role === 'trainer') {
+  if (isPrescriberRole(auth.role)) {
     add('p.prescribed_by = ?', auth.sub);
     where.push(
-      `EXISTS (SELECT 1 FROM trainer_student ts
-               WHERE ts.trainer_id = p.prescribed_by AND ts.student_id = p.owner_id AND ts.status = 'active')`,
+      `(EXISTS (SELECT 1 FROM trainer_student x
+                WHERE x.trainer_id = p.prescribed_by AND x.student_id = p.owner_id AND x.status = 'active')
+        OR EXISTS (SELECT 1 FROM running_coach_athlete x
+                   WHERE x.running_coach_id = p.prescribed_by AND x.athlete_id = p.owner_id AND x.status = 'active')
+        OR EXISTS (SELECT 1 FROM cycling_coach_athlete x
+                   WHERE x.cycling_coach_id = p.prescribed_by AND x.athlete_id = p.owner_id AND x.status = 'active'))`,
     );
     if (filter.studentId) add('p.owner_id = ?', filter.studentId);
   } else if (auth.role === 'admin') {
@@ -265,7 +282,97 @@ export async function listPlans(auth: Auth, filter: { studentId?: string; status
   return rows;
 }
 
-/** Edita o conteúdo de um rascunho. Planos ativos não mudam: os logs referenciam suas séries. */
+const hasHistory = () =>
+  new AppError(
+    409,
+    'has_history',
+    'Este dia/série já tem execuções registradas e não pode ser removido; mantenha-o ou arquive o plano e crie outro',
+  );
+
+/**
+ * Sincroniza o conteúdo de um plano que já pode ter logs, sem apagar histórico:
+ * dias são casados por `dayOfWeek`, séries por `id` (opcional; sem id = série nova).
+ * Remover um dia/série que já tem execuções é recusado (as FKs apagariam o histórico em cascata).
+ */
+async function syncContent(db: Db, planId: string, days: PlanContent['days']) {
+  await assertExercisesExist(db, days);
+
+  const { rows: existingDays } = await db.query<{ id: string; day_of_week: number }>(
+    'SELECT id, day_of_week FROM workout_days WHERE plan_id = $1',
+    [planId],
+  );
+  const byWeekday = new Map(existingDays.map((d) => [d.day_of_week, d.id]));
+  const keptWeekdays = new Set(days.map((d) => d.dayOfWeek));
+
+  for (const d of existingDays) {
+    if (keptWeekdays.has(d.day_of_week)) continue;
+    const { rowCount } = await db.query('SELECT 1 FROM workout_logs WHERE day_id = $1 LIMIT 1', [d.id]);
+    if (rowCount) throw hasHistory();
+    await db.query('DELETE FROM workout_days WHERE id = $1', [d.id]);
+  }
+
+  for (const day of days) {
+    let dayId = byWeekday.get(day.dayOfWeek);
+    if (dayId) {
+      await db.query('UPDATE workout_days SET muscle_group = $2, notes = $3 WHERE id = $1', [
+        dayId,
+        day.muscleGroup,
+        day.notes ?? null,
+      ]);
+    } else {
+      const { rows } = await db.query<{ id: string }>(
+        `INSERT INTO workout_days (plan_id, day_of_week, muscle_group, notes) VALUES ($1, $2, $3, $4) RETURNING id`,
+        [planId, day.dayOfWeek, day.muscleGroup, day.notes ?? null],
+      );
+      dayId = rows[0].id;
+    }
+
+    const { rows: existingSets } = await db.query<{ id: string; exercise_id: string }>(
+      'SELECT id, exercise_id FROM workout_sets WHERE day_id = $1',
+      [dayId],
+    );
+    const existing = new Map(existingSets.map((s) => [s.id, s.exercise_id]));
+    const keptIds = new Set<string>();
+    for (const s of day.sets) {
+      if (!s.id) continue;
+      if (!existing.has(s.id)) throw new AppError(400, 'invalid_set', 'Série não pertence a este dia do plano');
+      if (existing.get(s.id) !== s.exerciseId) {
+        throw new AppError(400, 'exercise_change', 'Para trocar o exercício, remova a série e adicione outra');
+      }
+      if (keptIds.has(s.id)) throw new AppError(400, 'duplicate_set', 'Série repetida');
+      keptIds.add(s.id);
+    }
+
+    for (const removedId of existing.keys()) {
+      if (keptIds.has(removedId)) continue;
+      const { rowCount } = await db.query('SELECT 1 FROM set_logs WHERE set_id = $1 LIMIT 1', [removedId]);
+      if (rowCount) throw hasHistory();
+      await db.query('DELETE FROM workout_sets WHERE id = $1', [removedId]);
+    }
+
+    // UNIQUE (day_id, "order"): afasta as ordens atuais antes de reatribuir.
+    await db.query(`UPDATE workout_sets SET "order" = "order" + 10000 WHERE day_id = $1`, [dayId]);
+    for (const [index, s] of day.sets.entries()) {
+      if (s.id) {
+        await db.query(
+          `UPDATE workout_sets SET sets = $2, reps = $3, load_kg = $4, rest_seconds = $5, "order" = $6 WHERE id = $1`,
+          [s.id, s.sets, s.reps, s.loadKg ?? null, s.restSeconds ?? null, index + 1],
+        );
+      } else {
+        await db.query(
+          `INSERT INTO workout_sets (day_id, exercise_id, sets, reps, load_kg, rest_seconds, "order")
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [dayId, s.exerciseId, s.sets, s.reps, s.loadKg ?? null, s.restSeconds ?? null, index + 1],
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Plano `self` (do próprio aluno): editável a qualquer momento, inclusive ativo, preservando o histórico.
+ * Demais planos: só o prescritor, e só enquanto rascunho (depois de aprovado fica imutável).
+ */
 export async function updatePlan(auth: Auth, id: string, content: PlanContent) {
   const client = await pool.connect();
   try {
@@ -273,9 +380,16 @@ export async function updatePlan(auth: Auth, id: string, content: PlanContent) {
     const { rows } = await client.query<PlanRow>('SELECT * FROM workout_plans WHERE id = $1 FOR UPDATE', [id]);
     const plan = rows[0];
     if (!plan) throw notFound('Plano');
-    assertPrescriber(auth, plan);
-    if (plan.status !== 'draft') {
-      throw new AppError(409, 'plan_not_draft', 'Só rascunhos podem ser editados');
+
+    const isSelf = plan.source === 'self';
+    if (isSelf) {
+      if (plan.owner_id !== auth.sub) throw notFound('Plano');
+      if (plan.status === 'archived') throw new AppError(409, 'plan_archived', 'Plano arquivado não pode ser editado');
+    } else {
+      assertPrescriber(auth, plan);
+      if (plan.status !== 'draft') {
+        throw new AppError(409, 'plan_not_draft', 'Só rascunhos podem ser editados');
+      }
     }
 
     await client.query('UPDATE workout_plans SET title = $2, duration_weeks = $3 WHERE id = $1', [
@@ -283,8 +397,13 @@ export async function updatePlan(auth: Auth, id: string, content: PlanContent) {
       content.title,
       content.durationWeeks ?? null,
     ]);
-    await client.query('DELETE FROM workout_days WHERE plan_id = $1', [id]);
-    await insertContent(client, id, content.days);
+    if (isSelf) {
+      await syncContent(client, id, content.days);
+    } else {
+      // Rascunho nunca tem logs, então pode ser reescrito por completo.
+      await client.query('DELETE FROM workout_days WHERE plan_id = $1', [id]);
+      await insertContent(client, id, content.days);
+    }
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -299,7 +418,7 @@ export async function approvePlan(auth: Auth, id: string) {
   const plan = await loadPlanRow(id);
   if (!plan) throw notFound('Plano');
   assertPrescriber(auth, plan);
-  if (!(await isLinkedTrainer(auth.sub, plan.owner_id))) {
+  if (!(await hasActiveLink(auth.sub, plan.owner_id))) {
     throw new AppError(403, 'not_linked', 'Você não tem vínculo ativo com este aluno');
   }
   const { rowCount } = await pool.query(

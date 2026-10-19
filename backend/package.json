@@ -12,7 +12,9 @@
     "migrate": "node-pg-migrate -m src/database/migrations --migration-file-language sql",
     "migrate:up": "npm run migrate -- up",
     "migrate:down": "npm run migrate -- down",
-    "migrate:create": "npm run migrate -- create"
+    "migrate:create": "npm run migrate -- create",
+    "seed:taco": "tsx src/database/seeds/import-taco.ts",
+    "job:daily-summaries": "tsx src/jobs/daily-summaries.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -14,6 +14,7 @@ export const listExercisesSchema = z.object({
 });
 
 const setSchema = z.object({
+  id: z.uuid().optional(), // só em PUT de plano `self`: identifica a série existente a atualizar
   exerciseId: z.uuid(),
   sets: z.number().int().min(1).max(20),
   reps: z.string().trim().regex(/^\d+(-\d+)?$/, 'Use "10" ou uma faixa como "8-12"'),

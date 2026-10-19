@@ -11,6 +11,11 @@ export const config = {
   env,
   port: Number(process.env.PORT ?? 3000),
   databaseUrl: process.env.DATABASE_URL ?? '',
+  timezone: process.env.APP_TIMEZONE ?? 'America/Sao_Paulo',
+  aiService: {
+    url: process.env.AI_SERVICE_URL ?? 'http://localhost:8000',
+    token: process.env.AI_SERVICE_TOKEN ?? '',
+  },
   invite: {
     // Deep link / URL aberta pelo aluno; o token é anexado ao final.
     baseUrl: process.env.INVITE_BASE_URL ?? 'fitos://invite/',
