@@ -5,7 +5,15 @@ export const listFoodsSchema = z.object({
   category: z.string().trim().max(80).optional(),
 });
 
+const portionsSchema = z
+  .array(z.object({ label: z.string().trim().min(1).max(40), grams: z.number().positive().max(5000) }))
+  .max(12)
+  .refine((ps) => new Set(ps.map((p) => p.label.toLowerCase())).size === ps.length, 'Rótulo de porção repetido');
+
+export const setPortionsSchema = z.object({ portions: portionsSchema });
+
 export const createFoodSchema = z.object({
+  portions: portionsSchema.optional(),
   name: z.string().trim().min(2).max(160),
   kcalPer100g: z.number().min(0).max(1000),
   proteinPer100g: z.number().min(0).max(100),
@@ -29,32 +37,64 @@ const planContent = {
   targetProteinG: z.number().min(0).max(1000).optional(),
   targetCarbG: z.number().min(0).max(1500).optional(),
   targetFatG: z.number().min(0).max(1000).optional(),
-  meals: z.array(mealSchema).min(1).max(12),
+  // Pode ser um plano só com metas (sem refeições montadas), útil para acompanhar o dia contra a meta.
+  meals: z.array(mealSchema).max(12).default([]),
 };
 
+const hasContent = (p: { meals: unknown[]; targetKcal?: number; targetProteinG?: number; targetCarbG?: number; targetFatG?: number }) =>
+  p.meals.length > 0 ||
+  [p.targetKcal, p.targetProteinG, p.targetCarbG, p.targetFatG].some((t) => t !== undefined);
+const CONTENT_MSG = 'Informe ao menos uma refeição ou uma meta';
+
 // `patientId` é obrigatório para o nutricionista e ignorado para o aluno (plano próprio).
-export const createPlanSchema = z.object({ patientId: z.uuid().optional(), ...planContent });
-export const updatePlanSchema = z.object(planContent);
+export const createPlanSchema = z
+  .object({ patientId: z.uuid().optional(), ...planContent })
+  .refine(hasContent, CONTENT_MSG);
+export const updatePlanSchema = z.object(planContent).refine(hasContent, CONTENT_MSG);
 
 export const listPlansSchema = z.object({
   patientId: z.uuid().optional(),
   status: z.enum(['draft', 'active', 'archived']).optional(),
 });
 
+export const mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'] as const; // café, almoço, jantar, lanche
+
+// Quantidade: em gramas OU em porções caseiras do alimento (ex.: 2 × "fatia"). Exatamente uma das duas.
+const quantityFields = {
+  quantityG: z.number().positive().max(5000).optional(),
+  portion: z
+    .object({ label: z.string().trim().min(1).max(40), count: z.number().positive().max(100).default(1) })
+    .optional(),
+};
+const oneQuantity = (v: { quantityG?: number; portion?: unknown }) => (v.quantityG === undefined) !== (v.portion === undefined);
+const QUANTITY_MSG = 'Informe quantityG ou portion (apenas um)';
+
 export const createLogSchema = z.object({
   items: z
     .array(
-      z.object({
-        foodId: z.uuid(),
-        quantityG: z.number().positive().max(5000),
-        mealId: z.uuid().optional(),
-      }),
+      z
+        .object({
+          foodId: z.uuid(),
+          mealType: z.enum(mealTypes),
+          mealId: z.uuid().optional(), // refeição do plano alimentar ativo, opcional
+          ...quantityFields,
+        })
+        .refine(oneQuantity, QUANTITY_MSG),
     )
     .min(1)
     .max(30),
   loggedAt: z.iso.datetime().optional(),
   recognitionSource: z.enum(['manual', 'photo_ai']).default('manual'),
 });
+
+export const updateLogSchema = z
+  .object({
+    mealType: z.enum(mealTypes).optional(),
+    loggedAt: z.iso.datetime().optional(),
+    ...quantityFields,
+  })
+  .refine((v) => !(v.quantityG !== undefined && v.portion !== undefined), QUANTITY_MSG)
+  .refine((v) => v.mealType !== undefined || v.loggedAt !== undefined || v.quantityG !== undefined || v.portion !== undefined, 'Nada para atualizar');
 
 export const listLogsSchema = z.object({
   date: z.iso.date().optional(), // YYYY-MM-DD no fuso de config.timezone; padrão: hoje
@@ -64,3 +104,4 @@ export const listLogsSchema = z.object({
 export type PlanContent = z.infer<typeof updatePlanSchema>;
 export type CreatePlanInput = z.infer<typeof createPlanSchema>;
 export type CreateLogInput = z.infer<typeof createLogSchema>;
+export type UpdateLogInput = z.infer<typeof updateLogSchema>;

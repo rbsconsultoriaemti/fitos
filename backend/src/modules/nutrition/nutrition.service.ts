@@ -3,7 +3,7 @@ import { pool } from '../../database/pool';
 import { config } from '../../shared/config';
 import { AppError } from '../../shared/errors';
 import { AccessTokenPayload } from '../auth/auth.service';
-import { CreateLogInput, CreatePlanInput, PlanContent } from './nutrition.schemas';
+import { CreateLogInput, CreatePlanInput, mealTypes, PlanContent, UpdateLogInput } from './nutrition.schemas';
 
 type Auth = AccessTokenPayload;
 type Db = Pick<PoolClient, 'query'>;
@@ -30,10 +30,15 @@ async function canAccessPatient(auth: Auth, patientId: string) {
 
 // ---------- alimentos ----------
 
-const FOOD_COLS = `id, name, source, category, kcal_per_100g AS "kcalPer100g", protein_per_100g AS "proteinPer100g",
-  carb_per_100g AS "carbPer100g", fat_per_100g AS "fatPer100g", barcode`;
+const foodCols = (a = '') => `${a}id, ${a}name, ${a}source, ${a}category, ${a}kcal_per_100g AS "kcalPer100g",
+  ${a}protein_per_100g AS "proteinPer100g", ${a}carb_per_100g AS "carbPer100g", ${a}fat_per_100g AS "fatPer100g",
+  ${a}barcode, ${a}portions`;
+const FOOD_COLS = foodCols();
 
-const escapeLike = (s: string) => s.replace(/[\\%_]/g, '\\$&');
+interface Portion {
+  label: string;
+  grams: number;
+}
 
 function foodOut(r: any) {
   return {
@@ -45,15 +50,38 @@ function foodOut(r: any) {
   };
 }
 
+/**
+ * Busca fuzzy: ignora acento e caixa, aceita as palavras em qualquer ordem e tolera erro de digitação
+ * (trigram). Cada palavra precisa aparecer no nome ou ser parecida o bastante com algum trecho dele.
+ */
 export async function listFoods(filter: { q?: string; category?: string }) {
-  const q = filter.q ? escapeLike(filter.q) : null;
+  const category = filter.category ?? null;
+  if (!filter.q) {
+    const { rows } = await pool.query(
+      `SELECT ${FOOD_COLS} FROM foods WHERE ($1::text IS NULL OR lower(category) = lower($1)) ORDER BY name LIMIT 50`,
+      [category],
+    );
+    return rows.map(foodOut);
+  }
+
   const { rows } = await pool.query(
-    `SELECT ${FOOD_COLS} FROM foods
-     WHERE ($1::text IS NULL OR name ILIKE '%' || $1 || '%')
-       AND ($2::text IS NULL OR lower(category) = lower($2))
-     ORDER BY ($1::text IS NOT NULL AND lower(name) LIKE lower($1) || '%') DESC, length(name), name
+    `WITH q AS (
+       SELECT f_unaccent(lower($1)) AS s,
+              array_remove(regexp_split_to_array(f_unaccent(lower($1)), '[^a-z0-9]+'), '') AS toks
+     )
+     SELECT ${foodCols('f.')}
+     FROM foods f, q
+     WHERE cardinality(q.toks) > 0
+       AND ($2::text IS NULL OR lower(f.category) = lower($2))
+       AND (SELECT bool_and(f.name_search LIKE '%' || t || '%'
+                            OR (length(t) >= 5 AND word_similarity(t, f.name_search) >= 0.6))
+            FROM unnest(q.toks) t)
+     ORDER BY (SELECT bool_and(f.name_search LIKE '%' || t || '%') FROM unnest(q.toks) t) DESC,
+              (f.name_search LIKE q.toks[1] || '%') DESC,
+              word_similarity(q.s, f.name_search) DESC,
+              length(f.name), f.name
      LIMIT 50`,
-    [q, filter.category ?? null],
+    [filter.q, category],
   );
   return rows.map(foodOut);
 }
@@ -71,15 +99,34 @@ export async function createFood(input: {
   carbPer100g: number;
   fatPer100g: number;
   barcode?: string;
+  portions?: Portion[];
 }) {
   const { rows } = await pool.query(
-    `INSERT INTO foods (name, source, kcal_per_100g, protein_per_100g, carb_per_100g, fat_per_100g, barcode)
-     VALUES ($1, 'custom', $2, $3, $4, $5, $6)
+    `INSERT INTO foods (name, source, kcal_per_100g, protein_per_100g, carb_per_100g, fat_per_100g, barcode, portions)
+     VALUES ($1, 'custom', $2, $3, $4, $5, $6, $7::jsonb)
      ON CONFLICT DO NOTHING
      RETURNING ${FOOD_COLS}`,
-    [input.name, input.kcalPer100g, input.proteinPer100g, input.carbPer100g, input.fatPer100g, input.barcode ?? null],
+    [
+      input.name,
+      input.kcalPer100g,
+      input.proteinPer100g,
+      input.carbPer100g,
+      input.fatPer100g,
+      input.barcode ?? null,
+      JSON.stringify(input.portions ?? []),
+    ],
   );
   if (!rows[0]) throw new AppError(409, 'food_exists', 'Já existe um alimento personalizado com esse nome');
+  return foodOut(rows[0]);
+}
+
+/** Corrige/define as porções caseiras de qualquer alimento (as da TACO são estimativas). */
+export async function setFoodPortions(id: string, portions: Portion[]) {
+  const { rows } = await pool.query(`UPDATE foods SET portions = $2::jsonb WHERE id = $1 RETURNING ${FOOD_COLS}`, [
+    id,
+    JSON.stringify(portions),
+  ]);
+  if (!rows[0]) throw notFound('Alimento');
   return foodOut(rows[0]);
 }
 
@@ -373,9 +420,50 @@ export async function archivePlan(auth: Auth, id: string) {
 
 // ---------- log de comida ----------
 
+const MEAL_LABELS: Record<(typeof mealTypes)[number], string> = {
+  breakfast: 'Café da manhã',
+  lunch: 'Almoço',
+  dinner: 'Jantar',
+  snack: 'Lanche',
+};
+
+interface Macros {
+  kcal: number;
+  proteinG: number;
+  carbG: number;
+  fatG: number;
+}
+
+const sumMacros = (items: Macros[]): Macros => {
+  const t = items.reduce(
+    (a, e) => ({ kcal: a.kcal + e.kcal, proteinG: a.proteinG + e.proteinG, carbG: a.carbG + e.carbG, fatG: a.fatG + e.fatG }),
+    { kcal: 0, proteinG: 0, carbG: 0, fatG: 0 },
+  );
+  return { kcal: round1(t.kcal), proteinG: round1(t.proteinG), carbG: round1(t.carbG), fatG: round1(t.fatG) };
+};
+
+/** Gramas a partir de `quantityG` ou de uma porção caseira do alimento (ex.: 2 × "fatia"). */
+function resolveQuantity(
+  food: { name: string; portions: Portion[] },
+  q: { quantityG?: number; portion?: { label: string; count: number } },
+) {
+  if (q.quantityG !== undefined) return { quantityG: q.quantityG, portionLabel: null, portionCount: null };
+
+  const wanted = q.portion!.label.toLowerCase();
+  const found = food.portions.find((p) => p.label.toLowerCase() === wanted);
+  if (!found) {
+    const options = food.portions.map((p) => p.label).join(', ') || 'nenhuma cadastrada';
+    throw new AppError(400, 'unknown_portion', `"${food.name}" não tem a porção "${q.portion!.label}" (disponíveis: ${options})`);
+  }
+  const grams = Math.round(found.grams * q.portion!.count * 10) / 10;
+  if (grams > 5000) throw new AppError(400, 'quantity_too_large', 'Quantidade acima do limite de 5000 g');
+  return { quantityG: grams, portionLabel: found.label, portionCount: q.portion!.count };
+}
+
 async function loadEntries(where: string, params: unknown[]) {
   const { rows } = await pool.query(
-    `SELECT l.id, l.food_id, l.meal_id, l.quantity_g, l.recognition_source, l.logged_at,
+    `SELECT l.id, l.food_id, l.meal_id, l.meal_type, l.quantity_g, l.portion_label, l.portion_count,
+            l.recognition_source, l.logged_at,
             f.name, f.kcal_per_100g, f.protein_per_100g, f.carb_per_100g, f.fat_per_100g
      FROM food_logs l JOIN foods f ON f.id = l.food_id
      WHERE ${where}
@@ -387,8 +475,10 @@ async function loadEntries(where: string, params: unknown[]) {
     return {
       id: r.id,
       food: { id: r.food_id, name: r.name },
+      mealType: r.meal_type as (typeof mealTypes)[number],
       mealId: r.meal_id,
       quantityG: Number(r.quantity_g),
+      portion: r.portion_label ? { label: r.portion_label, count: Number(r.portion_count) } : null,
       recognitionSource: r.recognition_source,
       loggedAt: r.logged_at,
       kcal: round1(Number(r.kcal_per_100g) * k),
@@ -401,8 +491,13 @@ async function loadEntries(where: string, params: unknown[]) {
 
 export async function createLogs(auth: Auth, input: CreateLogInput) {
   const foodIds = [...new Set(input.items.map((i) => i.foodId))];
-  const { rows: foods } = await pool.query('SELECT id FROM foods WHERE id = ANY($1::uuid[])', [foodIds]);
+  const { rows: foods } = await pool.query<{ id: string; name: string; portions: Portion[] }>(
+    'SELECT id, name, portions FROM foods WHERE id = ANY($1::uuid[])',
+    [foodIds],
+  );
   if (foods.length !== foodIds.length) throw new AppError(400, 'unknown_food', 'Um ou mais alimentos não existem');
+  const foodById = new Map(foods.map((f) => [f.id, f]));
+  const resolved = input.items.map((item) => resolveQuantity(foodById.get(item.foodId)!, item));
 
   // mealId só vale se for refeição de um plano ativo do próprio usuário.
   const mealIds = [...new Set(input.items.flatMap((i) => (i.mealId ? [i.mealId] : [])))];
@@ -421,16 +516,30 @@ export async function createLogs(auth: Auth, input: CreateLogInput) {
   try {
     await client.query('BEGIN');
     const ids: string[] = [];
-    for (const item of input.items) {
+    for (const [i, item] of input.items.entries()) {
+      const q = resolved[i];
       const { rows } = await client.query<{ id: string }>(
-        `INSERT INTO food_logs (user_id, food_id, meal_id, quantity_g, recognition_source, logged_at)
-         VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, now())) RETURNING id`,
-        [auth.sub, item.foodId, item.mealId ?? null, item.quantityG, input.recognitionSource, input.loggedAt ?? null],
+        `INSERT INTO food_logs (user_id, food_id, meal_id, meal_type, quantity_g, portion_label, portion_count,
+                                recognition_source, logged_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::timestamptz, clock_timestamp())) RETURNING id`,
+        [
+          auth.sub,
+          item.foodId,
+          item.mealId ?? null,
+          item.mealType,
+          q.quantityG,
+          q.portionLabel,
+          q.portionCount,
+          input.recognitionSource,
+          input.loggedAt ?? null,
+        ],
       );
       ids.push(rows[0].id);
     }
     await client.query('COMMIT');
-    return { entries: await loadEntries('l.id = ANY($1::uuid[])', [ids]) };
+    // Mesma ordem dos itens enviados (o SELECT não garante ordem entre horários iguais).
+    const loaded = new Map((await loadEntries('l.id = ANY($1::uuid[])', [ids])).map((e) => [e.id, e]));
+    return { entries: ids.map((id) => loaded.get(id)!) };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => undefined);
     throw err;
@@ -439,7 +548,44 @@ export async function createLogs(auth: Auth, input: CreateLogInput) {
   }
 }
 
-/** Log do dia (fuso de config.timezone) com totais e metas do plano ativo. */
+/** Edita um item já registrado: quantidade (g ou porção), refeição do dia ou horário. Só o dono. */
+export async function updateLog(auth: Auth, id: string, input: UpdateLogInput) {
+  const { rows } = await pool.query<{ food_id: string }>('SELECT food_id FROM food_logs WHERE id = $1 AND user_id = $2', [
+    id,
+    auth.sub,
+  ]);
+  if (!rows[0]) throw notFound('Registro');
+
+  const sets: string[] = [];
+  const params: unknown[] = [id];
+  const set = (col: string, value: unknown, cast = '') => {
+    params.push(value);
+    sets.push(`${col} = $${params.length}${cast}`);
+  };
+
+  if (input.quantityG !== undefined || input.portion !== undefined) {
+    const { rows: foods } = await pool.query<{ name: string; portions: Portion[] }>(
+      'SELECT name, portions FROM foods WHERE id = $1',
+      [rows[0].food_id],
+    );
+    const q = resolveQuantity(foods[0], input);
+    set('quantity_g', q.quantityG);
+    set('portion_label', q.portionLabel);
+    set('portion_count', q.portionCount);
+  }
+  if (input.mealType !== undefined) set('meal_type', input.mealType);
+  if (input.loggedAt !== undefined) set('logged_at', input.loggedAt, '::timestamptz');
+
+  await pool.query(`UPDATE food_logs SET ${sets.join(', ')} WHERE id = $1`, params);
+  return (await loadEntries('l.id = $1', [id]))[0];
+}
+
+const MACRO_KEYS = ['kcal', 'proteinG', 'carbG', 'fatG'] as const;
+
+/**
+ * Resumo do dia (fuso de config.timezone): itens agrupados por refeição (café, almoço, jantar, lanche),
+ * totais, e consumido × meta × quanto falta, quando há plano ativo com metas.
+ */
 export async function getDayLog(auth: Auth, filter: { date?: string; userId?: string }) {
   const userId = filter.userId ?? auth.sub;
   if (!(await canAccessPatient(auth, userId))) throw notFound('Paciente');
@@ -456,39 +602,51 @@ export async function getDayLog(auth: Auth, filter: { date?: string; userId?: st
      AND l.logged_at <  (($2::date) + 1)::timestamp AT TIME ZONE $3`,
     [userId, date, config.timezone],
   );
-  const totals = entries.reduce(
-    (t, e) => ({
-      kcal: t.kcal + e.kcal,
-      proteinG: t.proteinG + e.proteinG,
-      carbG: t.carbG + e.carbG,
-      fatG: t.fatG + e.fatG,
-    }),
-    { kcal: 0, proteinG: 0, carbG: 0, fatG: 0 },
-  );
+  const totals = sumMacros(entries);
 
   const { rows: plans } = await pool.query<PlanRow>(
     `SELECT * FROM diet_plans WHERE patient_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
     [userId],
   );
   const plan = plans[0];
+  const targets = plan
+    ? {
+        kcal: num(plan.target_kcal),
+        proteinG: num(plan.target_protein_g),
+        carbG: num(plan.target_carb_g),
+        fatG: num(plan.target_fat_g),
+      }
+    : null;
+
+  const progress = targets
+    ? Object.fromEntries(
+        MACRO_KEYS.map((k) => {
+          const target = targets[k];
+          return [
+            k,
+            target === null
+              ? null
+              : {
+                  consumed: totals[k],
+                  target,
+                  remaining: round1(target - totals[k]), // negativo = passou da meta
+                  percent: Math.round((totals[k] / target) * 100),
+                },
+          ];
+        }),
+      )
+    : null;
 
   return {
     date,
+    meals: mealTypes.map((type) => {
+      const items = entries.filter((e) => e.mealType === type);
+      return { type, label: MEAL_LABELS[type], totals: sumMacros(items), entries: items };
+    }),
     entries,
-    totals: {
-      kcal: round1(totals.kcal),
-      proteinG: round1(totals.proteinG),
-      carbG: round1(totals.carbG),
-      fatG: round1(totals.fatG),
-    },
-    targets: plan
-      ? {
-          kcal: num(plan.target_kcal),
-          proteinG: num(plan.target_protein_g),
-          carbG: num(plan.target_carb_g),
-          fatG: num(plan.target_fat_g),
-        }
-      : null,
+    totals,
+    targets,
+    progress,
   };
 }
 

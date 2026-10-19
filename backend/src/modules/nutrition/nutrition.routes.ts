@@ -10,6 +10,8 @@ import {
   listFoodsSchema,
   listLogsSchema,
   listPlansSchema,
+  setPortionsSchema,
+  updateLogSchema,
   updatePlanSchema,
 } from './nutrition.schemas';
 import * as service from './nutrition.service';
@@ -39,6 +41,14 @@ nutritionRouter.post(
   requireRole('nutritionist', 'admin'),
   wrap(async (req, res) => {
     res.status(201).json(await service.createFood(createFoodSchema.parse(req.body)));
+  }),
+);
+
+nutritionRouter.patch(
+  '/foods/:id/portions',
+  requireRole('nutritionist', 'admin'),
+  wrap(async (req, res) => {
+    res.json(await service.setFoodPortions(idParam.parse(req.params).id, setPortionsSchema.parse(req.body).portions));
   }),
 );
 
@@ -105,6 +115,12 @@ nutritionRouter.get(
   '/logs',
   wrap(async (req, res) => {
     res.json(await service.getDayLog(req.auth!, listLogsSchema.parse(req.query)));
+  }),
+);
+nutritionRouter.patch(
+  '/logs/:id',
+  wrap(async (req, res) => {
+    res.json(await service.updateLog(req.auth!, idParam.parse(req.params).id, updateLogSchema.parse(req.body)));
   }),
 );
 nutritionRouter.delete(

@@ -99,9 +99,9 @@ Roles no banco: `student | trainer | running_coach | cycling_coach | nutritionis
 ### Módulo nutrição
 - `diet_plans` (id, patient_id, prescribed_by, title, source, target_kcal, target_protein_g, target_carb_g, target_fat_g, status)
 - `meals` (id, plan_id, name, order, time_suggestion)
-- `foods` (id, name, source, external_id, category, kcal_per_100g, protein_per_100g, carb_per_100g, fat_per_100g, barcode)
+- `foods` (id, name, source, external_id, category, kcal_per_100g, protein_per_100g, carb_per_100g, fat_per_100g, barcode, portions, name_search)
 - `meal_foods` (id, meal_id, food_id, quantity_g)
-- `food_logs` (id, user_id, food_id, meal_id, quantity_g, photo_url, recognition_source, logged_at)
+- `food_logs` (id, user_id, food_id, meal_id, meal_type, quantity_g, portion_label, portion_count, photo_url, recognition_source, logged_at)
 - `daily_summaries` (id, user_id, log_date, total_kcal, total_protein_g, total_carb_g, total_fat_g, workout_kcal_burned)
 
 ### Módulo corrida

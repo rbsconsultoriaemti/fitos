@@ -14,6 +14,7 @@
     "migrate:down": "npm run migrate -- down",
     "migrate:create": "npm run migrate -- create",
     "seed:taco": "tsx src/database/seeds/import-taco.ts",
+    "seed:portions": "tsx src/database/seeds/run-sql.ts food-portions.sql",
     "job:daily-summaries": "tsx src/jobs/daily-summaries.ts"
   },
   "dependencies": {
