@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 import { pool } from './database/pool';
 import { authRouter } from './modules/auth/auth.routes';
 import { invitesRouter } from './modules/auth/invites.routes';
+import { workoutRouter } from './modules/workout/workout.routes';
 import { AppError } from './shared/errors';
 
 export function createApp() {
@@ -24,6 +25,7 @@ export function createApp() {
 
   app.use('/auth', authRouter);
   app.use('/invites', invitesRouter);
+  app.use('/workout', workoutRouter);
   // Próximos módulos entram aqui conforme forem construídos.
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

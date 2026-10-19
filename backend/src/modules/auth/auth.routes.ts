@@ -1,12 +1,8 @@
-import { NextFunction, Request, Response, Router } from 'express';
+import { Router } from 'express';
+import { wrap } from '../../shared/http';
 import { requireAuth } from './auth.middleware';
 import { loginSchema, refreshSchema, registerSchema } from './auth.schemas';
 import * as service from './auth.service';
-
-type Handler = (req: Request, res: Response) => Promise<void>;
-const wrap = (fn: Handler) => (req: Request, res: Response, next: NextFunction) => {
-  fn(req, res).catch(next);
-};
 
 export const authRouter = Router();
 
