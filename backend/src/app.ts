@@ -7,7 +7,17 @@ import { authRouter } from './modules/auth/auth.routes';
 import { invitesRouter } from './modules/auth/invites.routes';
 import { nutritionRouter } from './modules/nutrition/nutrition.routes';
 import { workoutRouter } from './modules/workout/workout.routes';
+import { config } from './shared/config';
 import { AppError } from './shared/errors';
+
+function describeDatabaseTarget() {
+  try {
+    const u = new URL(config.databaseUrl);
+    return { host: u.hostname, port: u.port || '5432', database: u.pathname.slice(1), user: u.username };
+  } catch {
+    return config.databaseUrl ? 'DATABASE_URL inválida (não é uma URL)' : 'DATABASE_URL vazia';
+  }
+}
 
 export function createApp() {
   const app = express();
@@ -19,7 +29,15 @@ export function createApp() {
     try {
       await pool.query('SELECT 1');
       res.json({ status: 'ok', db: 'up' });
-    } catch {
+    } catch (err) {
+      // Detalhe só no log do servidor (a resposta pública não expõe nada); nunca loga a senha da URL.
+      const e = err as NodeJS.ErrnoException & { code?: string };
+      console.error('[health] falha ao conectar no PostgreSQL:', {
+        message: e.message,
+        code: e.code,
+        errors: err instanceof AggregateError ? err.errors.map((x) => ({ message: x.message, code: x.code })) : undefined,
+        target: describeDatabaseTarget(),
+      });
       res.status(503).json({ status: 'degraded', db: 'down' });
     }
   });
