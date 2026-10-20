@@ -150,3 +150,18 @@ export interface LogDetail {
     done: LogSetValues & { reps: number | null };
   }[];
 }
+
+export interface Profile {
+  name: string;
+  email: string;
+  birthDate: string | null; // AAAA-MM-DD
+  sex: 'male' | 'female' | 'other' | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  bodyFatPct: number | null;
+  restingHrBpm: number | null;
+  maxHrBpm: number | null;
+  goal: string | null;
+  fitnessLevel: 'beginner' | 'intermediate' | 'advanced' | null;
+  restrictions: string[];
+}

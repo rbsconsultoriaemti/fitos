@@ -40,6 +40,10 @@ export default function TabsLayout() {
         name="progress"
         options={{ title: 'Progresso', tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart" color={color as string} size={size} /> }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{ title: 'Perfil', tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color as string} size={size} /> }}
+      />
     </Tabs>
   );
 }
