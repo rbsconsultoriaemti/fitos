@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image } from 'expo-image';
 
 import { api, ApiError } from './api';
 import type { LogSummary, PlanSummary, User, WorkoutPlan } from './types';
@@ -41,12 +42,19 @@ export const setCachedUser = (user: User | null) => write(USER_KEY, user);
 
 export const getCachedPlan = () => read<WorkoutPlan>(PLAN_KEY);
 
+/** Baixa as demonstrações dos exercícios do plano para o cache em disco (sem esperar, sem falhar). */
+function prefetchImages(plan: WorkoutPlan) {
+  const urls = plan.days.flatMap((d) => d.sets.flatMap((s) => s.exercise.imageUrls ?? []));
+  if (urls.length > 0) Image.prefetch([...new Set(urls)], 'disk').catch(() => {});
+}
+
 /** Busca o plano ativo; sem rede, devolve a última cópia salva (`offline: true`). */
 export async function loadActivePlan(): Promise<{ plan: WorkoutPlan | null; offline: boolean }> {
   try {
     const plans = await api<PlanSummary[]>('/workout/plans?status=active');
     const plan = plans[0] ? await api<WorkoutPlan>(`/workout/plans/${plans[0].id}`) : null;
     await write(PLAN_KEY, plan);
+    if (plan) prefetchImages(plan);
     return { plan, offline: false };
   } catch (err) {
     if (!isOffline(err)) throw err;

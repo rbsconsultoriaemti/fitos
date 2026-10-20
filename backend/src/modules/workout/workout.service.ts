@@ -57,7 +57,7 @@ export async function createExercise(input: {
 
 export async function listExercises(filter: { q?: string; muscleGroup?: string }) {
   const { rows } = await pool.query(
-    `SELECT id, name, category, muscle_group AS "muscleGroup", equipment, video_url AS "videoUrl"
+    `SELECT id, name, category, muscle_group AS "muscleGroup", equipment, video_url AS "videoUrl", image_urls AS "imageUrls"
      FROM exercises
      WHERE ($1::text IS NULL OR name ILIKE '%' || $1 || '%')
        AND ($2::text IS NULL OR lower(muscle_group) = lower($2))
@@ -70,7 +70,7 @@ export async function listExercises(filter: { q?: string; muscleGroup?: string }
 
 export async function getExercise(id: string) {
   const { rows } = await pool.query(
-    `SELECT id, name, category, muscle_group AS "muscleGroup", equipment, video_url AS "videoUrl"
+    `SELECT id, name, category, muscle_group AS "muscleGroup", equipment, video_url AS "videoUrl", image_urls AS "imageUrls"
      FROM exercises WHERE id = $1`,
     [id],
   );
@@ -156,7 +156,7 @@ async function buildPlan(plan: PlanRow) {
   const { rows } = await pool.query(
     `SELECT d.id AS day_id, d.day_of_week, d.muscle_group AS day_muscle_group, d.notes,
             s.id AS set_id, s.sets, s.reps, s.load_kg, s.rest_seconds, s.duration_min, s.distance_km, s."order",
-            e.id AS exercise_id, e.name AS exercise_name, e.video_url, e.category AS exercise_category
+            e.id AS exercise_id, e.name AS exercise_name, e.video_url, e.image_urls, e.category AS exercise_category
      FROM workout_days d
      LEFT JOIN workout_sets s ON s.day_id = d.id AND NOT s.archived
      LEFT JOIN exercises e ON e.id = s.exercise_id
@@ -180,7 +180,7 @@ async function buildPlan(plan: PlanRow) {
       days.get(r.day_id).sets.push({
         id: r.set_id,
         order: r.order,
-        exercise: { id: r.exercise_id, name: r.exercise_name, videoUrl: r.video_url, category: r.exercise_category },
+        exercise: { id: r.exercise_id, name: r.exercise_name, videoUrl: r.video_url, imageUrls: r.image_urls, category: r.exercise_category },
         sets: r.sets,
         reps: r.reps,
         loadKg: num(r.load_kg),

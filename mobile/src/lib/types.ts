@@ -34,7 +34,7 @@ export interface PlanSummary {
 export interface WorkoutSet {
   id: string;
   order: number;
-  exercise: { id: string; name: string; videoUrl: string | null; category: string };
+  exercise: { id: string; name: string; videoUrl: string | null; imageUrls: string[]; category: string };
   sets: number;
   reps: string | null; // "10" ou faixa "8-12"; null no cardio (prescrito por tempo/distância)
   loadKg: number | null;

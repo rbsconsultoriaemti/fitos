@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, TextInput, Vibration, View } from 'react-native';
 
+import { ExerciseMedia } from '@/components/exercise-media';
 import { Button, Card, Chip, Empty, ErrorText, T } from '@/components/ui';
 import { errorMessage, notify } from '@/lib/dialog';
 import { isoWeekday, mmss, parseDecimal, WEEKDAYS } from '@/lib/format';
@@ -230,7 +231,8 @@ export default function Workout() {
           const cardio = isCardio(s);
           return (
             <Card key={s.id} style={complete ? { backgroundColor: c.primarySoft, borderColor: c.primary } : undefined}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space.md }}>
+                <ExerciseMedia urls={s.exercise.imageUrls} name={s.exercise.name} />
                 <T variant="h2" style={{ flex: 1 }}>
                   {s.exercise.name}
                 </T>
