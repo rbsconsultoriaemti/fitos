@@ -22,7 +22,7 @@ Não há outros desenvolvedores. Cada sessão começa lendo este arquivo.
 | Microserviço IA| Python + FastAPI                                |
 | Banco principal| PostgreSQL                                      |
 | Cache          | Redis                                           |
-| IA — visão     | Google Gemini Vision (foto → calorias)          |
+| IA — visão     | Claude Vision (foto → calorias)                 |
 | IA — texto     | Claude API (treino, dieta, prescrições)         |
 | Assinaturas    | RevenueCat                                      |
 | Auth           | JWT (access 15min) + refresh token (30 dias)    |

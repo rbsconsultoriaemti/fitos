@@ -1,6 +1,6 @@
 # STATUS — módulo nutrition
 
-- Estado: banco TACO, plano alimentar, log de comida e reconhecimento por foto (via ai-service) implementados. Testado com smoke test (Postgres local + ai-service real com o Gemini substituído por stub). Sem testes automatizados no backend.
+- Estado: banco TACO, plano alimentar, log de comida e reconhecimento por foto (via ai-service) implementados. Testado com smoke test (Postgres local + ai-service real com o provedor de visão substituído por stub). Sem testes automatizados no backend.
 - Migrations: `...009_create-nutrition.sql`, `...010_nutrition-search-portions-mealtype.sql` (pg_trgm + unaccent, porções, tipo de refeição)
 - Seeds: `npm run seed:taco` · `npm run seed:portions` · Job: `npm run job:daily-summaries [YYYY-MM-DD]`
 
@@ -41,7 +41,7 @@ Log de comida (estilo Samsung Health)
   - Nutricionista só vê pacientes com vínculo ativo
 
 Reconhecimento por foto
-- `POST /recognize` — corpo = bytes da imagem (`Content-Type: image/jpeg|png|webp`, até 8 MB). Backend → ai-service (`X-Service-Token`) → Gemini Vision. Devolve, para cada alimento reconhecido, `recognized {name, estimatedGrams, confidence}` + até 5 `candidates` da base. **Não registra nada**: o aluno confirma/corrige e chama `POST /logs` com `recognitionSource: 'photo_ai'`.
+- `POST /recognize` — corpo = bytes da imagem (`Content-Type: image/jpeg|png|webp`, até 8 MB). Backend → ai-service (`X-Service-Token`) → Claude Vision. Devolve, para cada alimento reconhecido, `recognized {name, estimatedGrams, confidence, estimated {kcal, proteinG, carbG, fatG}}` (macros da porção estimados pelo Claude, fallback quando a TACO não casa) + até 5 `candidates` da base. **Não registra nada**: o aluno confirma/corrige e chama `POST /logs` com `recognitionSource: 'photo_ai'`.
 - Config: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`. Sem token → 503 `ai_unavailable`.
 
 ## Porções caseiras (`foods.portions`)
@@ -57,7 +57,7 @@ Reconhecimento por foto
 - Plano de nutricionista só chega ao paciente após aprovação dele e vínculo ativo (com `consent_version`).
 
 ## Pendente
-- **Teste real com o Gemini** (precisa de `GEMINI_API_KEY`): só testei com stub; ver `ai-service/STATUS.md` (confirmar o id do modelo)
+- **Teste real com o Claude** (precisa de `ANTHROPIC_API_KEY`): só testei com stub; ver `ai-service/STATUS.md`
 - Armazenar a foto no S3 (`food_logs.photo_url` existe mas fica nulo; sem credenciais AWS ainda)
 - Rate limiting / cota por usuário em `/recognize` (cada chamada custa dinheiro)
 - Agendar o job noturno (Railway cron) e cobrir mais de um dia / usuários sem log

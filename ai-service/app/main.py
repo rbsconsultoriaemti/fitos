@@ -2,6 +2,7 @@ import hmac
 import logging
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 
 from .config import settings
 from .vision import Recognition, make_client, recognize_food
@@ -36,10 +37,11 @@ async def food_recognition(image: UploadFile = File(...), client=Depends(get_cli
         raise HTTPException(status_code=413, detail="image_too_large")
     if not data:
         raise HTTPException(status_code=400, detail="empty_image")
-    if not settings.gemini_api_key:
-        raise HTTPException(status_code=503, detail="gemini_not_configured")
+    if not settings.anthropic_api_key:
+        raise HTTPException(status_code=503, detail="anthropic_not_configured")
     try:
-        return recognize_food(client, data, image.content_type)
+        # A chamada ao SDK é síncrona: roda em thread para não travar o event loop.
+        return await run_in_threadpool(recognize_food, client, data, image.content_type)
     except Exception:
-        log.exception("Falha ao consultar o Gemini")
+        log.exception("Falha ao consultar o Claude")
         raise HTTPException(status_code=502, detail="vision_provider_error")

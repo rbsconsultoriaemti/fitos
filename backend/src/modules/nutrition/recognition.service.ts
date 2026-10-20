@@ -2,9 +2,13 @@ import { pool } from '../../database/pool';
 import { config } from '../../shared/config';
 import { AppError } from '../../shared/errors';
 
-interface RecognizedItem {
+interface RecognizedFood {
   name: string;
-  estimated_grams: number;
+  quantity_g: number;
+  kcal: number;
+  protein_g: number;
+  carb_g: number;
+  fat_g: number;
   confidence: number;
 }
 
@@ -43,7 +47,7 @@ async function findCandidates(name: string) {
 }
 
 /**
- * Envia a foto ao ai-service (Gemini Vision) e casa cada alimento reconhecido com o banco.
+ * Envia a foto ao ai-service (Claude Vision) e casa cada alimento reconhecido com o banco.
  * Nada é registrado aqui: o aluno confirma/corrige e então chama POST /nutrition/logs.
  */
 export async function recognizeMeal(image: Buffer, mimeType: string) {
@@ -69,11 +73,17 @@ export async function recognizeMeal(image: Buffer, mimeType: string) {
     throw new AppError(res.status === 503 ? 503 : 502, 'ai_error', 'Falha ao reconhecer a refeição');
   }
 
-  const { items } = (await res.json()) as { items: RecognizedItem[] };
+  const { foods } = (await res.json()) as { foods: RecognizedFood[] };
+  // `estimated` são os macros que o Claude calculou para a porção; serve de fallback quando nenhum candidato da TACO serve.
   const matched = await Promise.all(
-    items.map(async (i) => ({
-      recognized: { name: i.name, estimatedGrams: i.estimated_grams, confidence: i.confidence },
-      candidates: await findCandidates(i.name),
+    foods.map(async (f) => ({
+      recognized: {
+        name: f.name,
+        estimatedGrams: f.quantity_g,
+        confidence: f.confidence,
+        estimated: { kcal: f.kcal, proteinG: f.protein_g, carbG: f.carb_g, fatG: f.fat_g },
+      },
+      candidates: await findCandidates(f.name),
     })),
   );
 
