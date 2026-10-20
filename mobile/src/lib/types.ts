@@ -165,3 +165,36 @@ export interface Profile {
   fitnessLevel: 'beginner' | 'intermediate' | 'advanced' | null;
   restrictions: string[];
 }
+
+/** Alimento candidato da base (resultado do reconhecimento por foto ou escolha manual). */
+export interface FoodCandidate {
+  foodId: string;
+  name: string;
+  kcalPer100g: number;
+  proteinPer100g: number;
+  carbPer100g: number;
+  fatPer100g: number;
+}
+
+export interface RecognizedItem {
+  recognized: {
+    name: string;
+    estimatedGrams: number;
+    confidence: number;
+    estimated: Macros;
+  };
+  candidates: FoodCandidate[];
+}
+
+export interface RecognitionResult {
+  items: RecognizedItem[];
+  disclaimer: string;
+}
+
+/** Item de refeição a registrar: gramas OU porção caseira. */
+export interface NewFoodLog {
+  foodId: string;
+  mealType: MealType;
+  quantityG?: number;
+  portion?: { label: string; count: number };
+}

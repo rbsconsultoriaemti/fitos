@@ -31,6 +31,13 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "O FitOS acessa suas fotos para reconhecer os alimentos do prato.",
+          "cameraPermission": "O FitOS usa a câmera para fotografar o prato e estimar as calorias."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#16A34A",

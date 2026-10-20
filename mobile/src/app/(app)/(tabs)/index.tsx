@@ -4,9 +4,8 @@ import { RefreshControl, ScrollView, View } from 'react-native';
 
 import { DaySummary } from '@/components/day-summary';
 import { Button, Card, ErrorText, T } from '@/components/ui';
-import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/dialog';
-import { isOffline, loadActivePlan } from '@/lib/offline';
+import { loadActivePlan, loadDay } from '@/lib/offline';
 import { isoWeekday, localDate } from '@/lib/format';
 import type { DayLog, WorkoutDay, WorkoutPlan } from '@/lib/types';
 import { useSession } from '@/session';
@@ -28,13 +27,9 @@ export default function Home() {
     try {
       const { plan } = await loadActivePlan();
       setWorkout(plan ? { plan, day: plan.days.find((d) => d.dayOfWeek === isoWeekday()) ?? null } : null);
-      try {
-        setDay(await api<DayLog>(`/nutrition/logs?date=${localDate()}`));
-        setError(null);
-      } catch (err) {
-        if (!isOffline(err)) throw err;
-        setError('Sem conexão: mostrando o treino salvo no aparelho.');
-      }
+      const res = await loadDay(localDate());
+      setDay(res.day);
+      setError(res.offline ? 'Sem conexão: mostrando os dados salvos no aparelho.' : null);
     } catch (err) {
       setError(errorMessage(err));
     }

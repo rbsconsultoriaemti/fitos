@@ -8,9 +8,9 @@ const REFRESH_KEY = 'fitos.refreshToken';
 // Com sinal fraco o fetch pode ficar pendurado; depois deste tempo trata como "sem conexão".
 const TIMEOUT_MS = 8000;
 
-function fetchWithTimeout(url: string, init: RequestInit = {}) {
+function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = TIMEOUT_MS) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
@@ -90,18 +90,28 @@ interface Options {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   auth?: boolean;
+  /** Corpo binário (ex.: foto) em vez de JSON. */
+  raw?: { body: Blob; contentType: string };
+  timeoutMs?: number;
 }
 
-export async function api<T>(path: string, { method = 'GET', body, auth = true }: Options = {}): Promise<T> {
+export async function api<T>(
+  path: string,
+  { method = 'GET', body, auth = true, raw, timeoutMs }: Options = {},
+): Promise<T> {
   const send = () =>
-    fetchWithTimeout(`${API_URL}${path}`, {
-      method,
-      headers: {
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-        ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    fetchWithTimeout(
+      `${API_URL}${path}`,
+      {
+        method,
+        headers: {
+          ...(raw ? { 'Content-Type': raw.contentType } : body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...(auth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: raw ? raw.body : body !== undefined ? JSON.stringify(body) : undefined,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+      timeoutMs,
+    );
 
   let res: Response;
   try {
