@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, TextInput, Vibration, View } from 'react-native';
 
 import { Button, Card, Chip, Empty, ErrorText, T } from '@/components/ui';
 import { errorMessage, notify } from '@/lib/dialog';
 import { isoWeekday, mmss, parseDecimal, WEEKDAYS } from '@/lib/format';
-import { getDraft, isOffline, loadActivePlan, queueLog, setDraft, syncPendingLogs, type PendingLog } from '@/lib/offline';
+import { consumePlanStale, getDraft, isOffline, loadActivePlan, queueLog, setDraft, syncPendingLogs, type PendingLog } from '@/lib/offline';
 import { api } from '@/lib/api';
 import type { WorkoutPlan, WorkoutSet } from '@/lib/types';
 import { radius, space, useColors } from '@/theme';
@@ -17,13 +17,20 @@ interface Progress {
   done: number;
   load: string;
   reps: string;
+  duration: string; // cardio: minutos
+  distance: string; // cardio: km
 }
 
 const initial = (s: WorkoutSet): Progress => ({
   done: 0,
   load: s.loadKg !== null ? String(s.loadKg).replace('.', ',') : '',
-  reps: /^\d+$/.test(s.reps) ? s.reps : '',
+  reps: s.reps && /^\d+$/.test(s.reps) ? s.reps : '',
+  duration: s.durationMin !== null ? String(s.durationMin) : '',
+  distance: s.distanceKm !== null ? String(s.distanceKm).replace('.', ',') : '',
 });
+
+// Cardio (corrida/bike) é prescrito por tempo/distância, sem reps.
+const isCardio = (s: WorkoutSet) => s.reps === null;
 
 export default function Workout() {
   const c = useColors();
@@ -53,11 +60,15 @@ export default function Workout() {
       setPlan(full);
       const draft = await getDraft();
       if (draft && draft.planId === full.id && full.days.some((d) => d.id === draft.dayId)) {
-        setProgress(draft.progress);
+        setProgress(draft.progress as Record<string, Progress>);
         setStartedAt(draft.startedAt);
         setDayId(draft.dayId);
       } else {
-        setDayId((cur) => cur ?? (full.days.find((d) => d.dayOfWeek === isoWeekday()) ?? full.days[0])?.id ?? null);
+        setDayId((cur) =>
+          cur && full.days.some((d) => d.id === cur)
+            ? cur
+            : ((full.days.find((d) => d.dayOfWeek === isoWeekday()) ?? full.days[0])?.id ?? null),
+        );
       }
       setError(null);
     } catch (err) {
@@ -76,7 +87,7 @@ export default function Workout() {
 
   useFocusEffect(
     useCallback(() => {
-      if (plan === undefined || offline) load();
+      if (plan === undefined || offline || consumePlanStale()) load();
     }, [load, plan, offline]),
   );
 
@@ -119,6 +130,16 @@ export default function Workout() {
       .filter((s) => get(s).done > 0)
       .map((s) => {
         const p = get(s);
+        if (isCardio(s)) {
+          const minutes = parseDecimal(p.duration);
+          const km = parseDecimal(p.distance);
+          return {
+            setId: s.id,
+            setsDone: p.done,
+            durationDoneMin: minutes !== null && minutes >= 0 ? Math.round(minutes) : undefined,
+            distanceDoneKm: km !== null && km >= 0 ? km : undefined,
+          };
+        }
         const load = parseDecimal(p.load);
         const reps = parseDecimal(p.reps);
         return {
@@ -188,7 +209,12 @@ export default function Workout() {
         contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: 140, maxWidth: 640, width: '100%', alignSelf: 'center' }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        <T variant="muted">{plan.title}</T>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md }}>
+          <T variant="muted" style={{ flex: 1 }}>
+            {plan.title}
+          </T>
+          <Button title="Editar plano" kind="secondary" disabled={offline} onPress={() => router.push('/edit-plan')} />
+        </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
           {plan.days.map((d) => (
             <Chip key={d.id} label={`${WEEKDAYS[d.dayOfWeek - 1]} · ${d.muscleGroup}`} selected={d.id === dayId} onPress={() => setDayId(d.id)} />
@@ -201,6 +227,7 @@ export default function Workout() {
         {day.sets.map((s) => {
           const p = get(s);
           const complete = p.done >= s.sets;
+          const cardio = isCardio(s);
           return (
             <Card key={s.id} style={complete ? { backgroundColor: c.primarySoft, borderColor: c.primary } : undefined}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -209,6 +236,27 @@ export default function Workout() {
                 </T>
                 {complete ? <Ionicons name="checkmark-circle" size={24} color={c.primary} /> : null}
               </View>
+              {cardio ? (
+                <>
+              <T variant="muted">
+                {[s.durationMin !== null ? `${s.durationMin} min` : null, s.distanceKm !== null ? `${String(s.distanceKm).replace('.', ',')} km` : null]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </T>
+
+              <View style={{ flexDirection: 'row', gap: space.md }}>
+                <LabeledNumber label="Tempo feito (min)" value={p.duration ?? ''} onChange={(v) => patch(s, { duration: v })} />
+                <LabeledNumber label="Distância feita (km)" value={p.distance ?? ''} onChange={(v) => patch(s, { distance: v })} />
+              </View>
+
+              <Button
+                title={complete ? 'Concluído ✓' : 'Marcar como concluído'}
+                kind={complete ? 'secondary' : 'primary'}
+                onPress={() => toggleSerie(s, 1)}
+              />
+                </>
+              ) : (
+                <>
               <T variant="muted">
                 {s.sets} × {s.reps}
                 {s.loadKg !== null ? ` · ${s.loadKg} kg` : ''}
@@ -244,6 +292,8 @@ export default function Workout() {
                   );
                 })}
               </View>
+                </>
+              )}
             </Card>
           );
         })}

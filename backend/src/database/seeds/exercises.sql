@@ -2,8 +2,8 @@
 -- Idempotente: o índice único exercises_name_unique (lower(name)) ignora os que já existem.
 -- Uso: psql "$DATABASE_URL" -f src/database/seeds/exercises.sql
 --
--- category: compound (multiarticular) | isolation (monoarticular) | core | functional
--- muscle_group: peito | costas | ombros | bíceps | tríceps | pernas | abdômen | corpo inteiro
+-- category: compound (multiarticular) | isolation (monoarticular) | core | functional | cardio (por tempo/distância)
+-- muscle_group: peito | costas | ombros | bíceps | tríceps | pernas | abdômen | corpo inteiro | cardio
 
 INSERT INTO exercises (name, category, muscle_group, equipment) VALUES
   -- Peito
@@ -61,5 +61,17 @@ INSERT INTO exercises (name, category, muscle_group, equipment) VALUES
   ('Agachamento com salto',             'functional', 'pernas',        'peso corporal'),
   ('Mountain climber',                  'functional', 'corpo inteiro', 'peso corporal'),
   ('Kettlebell swing',                  'functional', 'corpo inteiro', 'kettlebell'),
-  ('Turkish get-up',                    'functional', 'corpo inteiro', 'kettlebell')
+  ('Turkish get-up',                    'functional', 'corpo inteiro', 'kettlebell'),
+
+  -- Cardio (corrida e bike): prescritos por tempo e/ou distância
+  ('Corrida de rua',                    'cardio',     'cardio', 'tênis'),
+  ('Corrida na esteira',                'cardio',     'cardio', 'esteira'),
+  ('Corrida intervalada (tiros)',       'cardio',     'cardio', 'tênis'),
+  ('Corrida leve (regenerativo)',       'cardio',     'cardio', 'tênis'),
+  ('Caminhada inclinada na esteira',    'cardio',     'cardio', 'esteira'),
+  ('Bike na rua (ciclismo)',            'cardio',     'cardio', 'bicicleta'),
+  ('Bike ergométrica',                  'cardio',     'cardio', 'bicicleta ergométrica'),
+  ('Spinning',                          'cardio',     'cardio', 'bicicleta de spinning'),
+  ('Remo ergométrico',                  'cardio',     'cardio', 'remo'),
+  ('Elíptico',                          'cardio',     'cardio', 'elíptico')
 ON CONFLICT (lower(name)) DO NOTHING;

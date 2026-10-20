@@ -55,13 +55,24 @@ export async function loadActivePlan(): Promise<{ plan: WorkoutPlan | null; offl
   }
 }
 
+// A tela de edição avisa que o plano mudou; a aba Treino recarrega ao voltar.
+let planStale = false;
+export const markPlanStale = () => {
+  planStale = true;
+};
+export const consumePlanStale = () => {
+  const stale = planStale;
+  planStale = false;
+  return stale;
+};
+
 // ---------- treino em andamento ----------
 
 export interface WorkoutDraft {
   planId: string;
   dayId: string;
   startedAt: number | null;
-  progress: Record<string, { done: number; load: string; reps: string }>;
+  progress: Record<string, { done: number; load: string; reps: string; duration?: string; distance?: string }>;
 }
 
 export const getDraft = () => read<WorkoutDraft>(DRAFT_KEY);
@@ -75,7 +86,14 @@ export interface PendingLog {
   performedAt: string;
   perceivedEffort?: number;
   notes?: string;
-  sets: { setId: string; setsDone: number; loadDoneKg?: number; repsDone?: number }[];
+  sets: {
+    setId: string;
+    setsDone: number;
+    loadDoneKg?: number;
+    repsDone?: number;
+    durationDoneMin?: number;
+    distanceDoneKm?: number;
+  }[];
 }
 
 export const getPendingLogs = async () => (await read<PendingLog[]>(QUEUE_KEY)) ?? [];

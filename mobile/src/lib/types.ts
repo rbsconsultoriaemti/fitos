@@ -34,11 +34,21 @@ export interface PlanSummary {
 export interface WorkoutSet {
   id: string;
   order: number;
-  exercise: { id: string; name: string; videoUrl: string | null };
+  exercise: { id: string; name: string; videoUrl: string | null; category: string };
   sets: number;
-  reps: string; // "10" ou faixa "8-12"
+  reps: string | null; // "10" ou faixa "8-12"; null no cardio (prescrito por tempo/distância)
   loadKg: number | null;
   restSeconds: number | null;
+  durationMin: number | null;
+  distanceKm: number | null;
+}
+
+export interface Exercise {
+  id: string;
+  name: string;
+  category: string;
+  muscleGroup: string;
+  equipment: string | null;
 }
 
 export interface WorkoutDay {

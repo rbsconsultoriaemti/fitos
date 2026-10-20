@@ -112,9 +112,19 @@ async function insertContent(db: Db, planId: string, days: PlanContent['days']) 
     );
     for (const [index, set] of day.sets.entries()) {
       await db.query(
-        `INSERT INTO workout_sets (day_id, exercise_id, sets, reps, load_kg, rest_seconds, "order")
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [dayRows[0].id, set.exerciseId, set.sets, set.reps, set.loadKg ?? null, set.restSeconds ?? null, index + 1],
+        `INSERT INTO workout_sets (day_id, exercise_id, sets, reps, load_kg, rest_seconds, duration_min, distance_km, "order")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          dayRows[0].id,
+          set.exerciseId,
+          set.sets,
+          set.reps ?? null,
+          set.loadKg ?? null,
+          set.restSeconds ?? null,
+          set.durationMin ?? null,
+          set.distanceKm ?? null,
+          index + 1,
+        ],
       );
     }
   }
@@ -145,10 +155,10 @@ function assertPrescriber(auth: Auth, plan: PlanRow) {
 async function buildPlan(plan: PlanRow) {
   const { rows } = await pool.query(
     `SELECT d.id AS day_id, d.day_of_week, d.muscle_group AS day_muscle_group, d.notes,
-            s.id AS set_id, s.sets, s.reps, s.load_kg, s.rest_seconds, s."order",
-            e.id AS exercise_id, e.name AS exercise_name, e.video_url
+            s.id AS set_id, s.sets, s.reps, s.load_kg, s.rest_seconds, s.duration_min, s.distance_km, s."order",
+            e.id AS exercise_id, e.name AS exercise_name, e.video_url, e.category AS exercise_category
      FROM workout_days d
-     LEFT JOIN workout_sets s ON s.day_id = d.id
+     LEFT JOIN workout_sets s ON s.day_id = d.id AND NOT s.archived
      LEFT JOIN exercises e ON e.id = s.exercise_id
      WHERE d.plan_id = $1
      ORDER BY d.day_of_week, s."order"`,
@@ -170,11 +180,13 @@ async function buildPlan(plan: PlanRow) {
       days.get(r.day_id).sets.push({
         id: r.set_id,
         order: r.order,
-        exercise: { id: r.exercise_id, name: r.exercise_name, videoUrl: r.video_url },
+        exercise: { id: r.exercise_id, name: r.exercise_name, videoUrl: r.video_url, category: r.exercise_category },
         sets: r.sets,
         reps: r.reps,
         loadKg: num(r.load_kg),
         restSeconds: r.rest_seconds,
+        durationMin: r.duration_min,
+        distanceKm: num(r.distance_km),
       });
     }
   }
@@ -328,41 +340,60 @@ async function syncContent(db: Db, planId: string, days: PlanContent['days']) {
     }
 
     const { rows: existingSets } = await db.query<{ id: string; exercise_id: string }>(
-      'SELECT id, exercise_id FROM workout_sets WHERE day_id = $1',
+      'SELECT id, exercise_id FROM workout_sets WHERE day_id = $1 AND NOT archived',
       [dayId],
     );
     const existing = new Map(existingSets.map((s) => [s.id, s.exercise_id]));
     const keptIds = new Set<string>();
-    for (const s of day.sets) {
-      if (!s.id) continue;
+    // Trocar o exercício = tirar a série antiga (arquiva se tiver histórico) e criar uma nova no mesmo lugar.
+    const items = day.sets.map((s) => {
+      if (!s.id) return s;
       if (!existing.has(s.id)) throw new AppError(400, 'invalid_set', 'Série não pertence a este dia do plano');
-      if (existing.get(s.id) !== s.exerciseId) {
-        throw new AppError(400, 'exercise_change', 'Para trocar o exercício, remova a série e adicione outra');
-      }
       if (keptIds.has(s.id)) throw new AppError(400, 'duplicate_set', 'Série repetida');
+      if (existing.get(s.id) !== s.exerciseId) return { ...s, id: undefined };
       keptIds.add(s.id);
-    }
+      return s;
+    });
 
     for (const removedId of existing.keys()) {
       if (keptIds.has(removedId)) continue;
       const { rowCount } = await db.query('SELECT 1 FROM set_logs WHERE set_id = $1 LIMIT 1', [removedId]);
-      if (rowCount) throw hasHistory();
-      await db.query('DELETE FROM workout_sets WHERE id = $1', [removedId]);
+      if (rowCount) {
+        // Tem histórico: arquiva (some do plano, continua nos logs) e sai da faixa de ordens em uso.
+        await db.query(
+          `UPDATE workout_sets SET archived = true,
+             "order" = (SELECT GREATEST(COALESCE(MAX("order"), 0), 100000) + 1 FROM workout_sets WHERE day_id = $2)
+           WHERE id = $1`,
+          [removedId, dayId],
+        );
+      } else {
+        await db.query('DELETE FROM workout_sets WHERE id = $1', [removedId]);
+      }
     }
 
     // UNIQUE (day_id, "order"): afasta as ordens atuais antes de reatribuir.
-    await db.query(`UPDATE workout_sets SET "order" = "order" + 10000 WHERE day_id = $1`, [dayId]);
-    for (const [index, s] of day.sets.entries()) {
+    await db.query(`UPDATE workout_sets SET "order" = "order" + 10000 WHERE day_id = $1 AND NOT archived`, [dayId]);
+    for (const [index, s] of items.entries()) {
+      const values = [
+        s.sets,
+        s.reps ?? null,
+        s.loadKg ?? null,
+        s.restSeconds ?? null,
+        s.durationMin ?? null,
+        s.distanceKm ?? null,
+        index + 1,
+      ];
       if (s.id) {
         await db.query(
-          `UPDATE workout_sets SET sets = $2, reps = $3, load_kg = $4, rest_seconds = $5, "order" = $6 WHERE id = $1`,
-          [s.id, s.sets, s.reps, s.loadKg ?? null, s.restSeconds ?? null, index + 1],
+          `UPDATE workout_sets SET sets = $2, reps = $3, load_kg = $4, rest_seconds = $5,
+                  duration_min = $6, distance_km = $7, "order" = $8 WHERE id = $1`,
+          [s.id, ...values],
         );
       } else {
         await db.query(
-          `INSERT INTO workout_sets (day_id, exercise_id, sets, reps, load_kg, rest_seconds, "order")
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [dayId, s.exerciseId, s.sets, s.reps, s.loadKg ?? null, s.restSeconds ?? null, index + 1],
+          `INSERT INTO workout_sets (day_id, exercise_id, sets, reps, load_kg, rest_seconds, duration_min, distance_km, "order")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [dayId, s.exerciseId, ...values],
         );
       }
     }
@@ -473,8 +504,17 @@ export async function createLog(auth: Auth, input: CreateLogInput) {
     );
     for (const s of input.sets) {
       await client.query(
-        `INSERT INTO set_logs (log_id, set_id, sets_done, load_done_kg, reps_done) VALUES ($1, $2, $3, $4, $5)`,
-        [rows[0].id, s.setId, s.setsDone, s.loadDoneKg ?? null, s.repsDone ?? null],
+        `INSERT INTO set_logs (log_id, set_id, sets_done, load_done_kg, reps_done, duration_done_min, distance_done_km)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          rows[0].id,
+          s.setId,
+          s.setsDone,
+          s.loadDoneKg ?? null,
+          s.repsDone ?? null,
+          s.durationDoneMin ?? null,
+          s.distanceDoneKm ?? null,
+        ],
       );
     }
     await client.query('COMMIT');
@@ -500,7 +540,8 @@ export async function getLog(auth: Auth, id: string) {
   const { rows } = await pool.query(
     `SELECT s.id AS set_id, s."order", e.name AS exercise_name,
             s.sets AS prescribed_sets, s.reps AS prescribed_reps, s.load_kg AS prescribed_load_kg,
-            sl.sets_done, sl.reps_done, sl.load_done_kg
+            s.duration_min AS prescribed_duration_min, s.distance_km AS prescribed_distance_km,
+            sl.sets_done, sl.reps_done, sl.load_done_kg, sl.duration_done_min, sl.distance_done_km
      FROM set_logs sl
      JOIN workout_sets s ON s.id = sl.set_id
      JOIN exercises e ON e.id = s.exercise_id
@@ -520,8 +561,20 @@ export async function getLog(auth: Auth, id: string) {
     sets: rows.map((r) => ({
       setId: r.set_id,
       exercise: r.exercise_name,
-      prescribed: { sets: r.prescribed_sets, reps: r.prescribed_reps, loadKg: num(r.prescribed_load_kg) },
-      done: { sets: r.sets_done, reps: r.reps_done, loadKg: num(r.load_done_kg) },
+      prescribed: {
+        sets: r.prescribed_sets,
+        reps: r.prescribed_reps,
+        loadKg: num(r.prescribed_load_kg),
+        durationMin: r.prescribed_duration_min,
+        distanceKm: num(r.prescribed_distance_km),
+      },
+      done: {
+        sets: r.sets_done,
+        reps: r.reps_done,
+        loadKg: num(r.load_done_kg),
+        durationMin: r.duration_done_min,
+        distanceKm: num(r.distance_done_km),
+      },
     })),
   };
 }

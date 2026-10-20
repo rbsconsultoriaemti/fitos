@@ -13,14 +13,22 @@ export const listExercisesSchema = z.object({
   muscleGroup: z.string().trim().max(60).optional(),
 });
 
-const setSchema = z.object({
-  id: z.uuid().optional(), // só em PUT de plano `self`: identifica a série existente a atualizar
-  exerciseId: z.uuid(),
-  sets: z.number().int().min(1).max(20),
-  reps: z.string().trim().regex(/^\d+(-\d+)?$/, 'Use "10" ou uma faixa como "8-12"'),
-  loadKg: z.number().min(0).max(1000).optional(),
-  restSeconds: z.number().int().min(0).max(1800).optional(),
-});
+const setSchema = z
+  .object({
+    id: z.uuid().optional(), // só em PUT de plano `self`: identifica a série existente a atualizar
+    exerciseId: z.uuid(),
+    sets: z.number().int().min(1).max(20),
+    reps: z.string().trim().regex(/^\d+(-\d+)?$/, 'Use "10" ou uma faixa como "8-12"').optional(),
+    loadKg: z.number().min(0).max(1000).optional(),
+    restSeconds: z.number().int().min(0).max(1800).optional(),
+    // Cardio (corrida/bike): prescrição por tempo e/ou distância.
+    durationMin: z.number().int().min(1).max(1440).optional(),
+    distanceKm: z.number().positive().max(9999).optional(),
+  })
+  .refine((s) => s.reps !== undefined || s.durationMin !== undefined || s.distanceKm !== undefined, {
+    message: 'Informe reps, durationMin ou distanceKm',
+    path: ['reps'],
+  });
 
 const daySchema = z.object({
   dayOfWeek: z.number().int().min(1).max(7), // 1 = segunda ... 7 = domingo
@@ -61,6 +69,8 @@ export const createLogSchema = z.object({
         setsDone: z.number().int().min(0).max(50),
         loadDoneKg: z.number().min(0).max(1000).optional(),
         repsDone: z.number().int().min(0).max(1000).optional(),
+        durationDoneMin: z.number().int().min(0).max(1440).optional(),
+        distanceDoneKm: z.number().min(0).max(9999).optional(),
       }),
     )
     .min(1)

@@ -7,6 +7,7 @@ export default function AppLayout() {
   return (
     <Stack screenOptions={{ headerStyle: { backgroundColor: c.card }, headerTintColor: c.text, contentStyle: { backgroundColor: c.bg } }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="edit-plan" options={{ title: 'Editar plano' }} />
     </Stack>
   );
 }
