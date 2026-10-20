@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { api, ApiError } from './api';
-import type { PlanSummary, User, WorkoutPlan } from './types';
+import type { LogSummary, PlanSummary, User, WorkoutPlan } from './types';
 
 // Tudo que o treino precisa para funcionar sem sinal (academia no subsolo):
 // plano ativo em cache, treino em andamento salvo no aparelho e fila de treinos finalizados offline.
@@ -10,6 +10,7 @@ const PLAN_KEY = 'fitos.cache.plan';
 const USER_KEY = 'fitos.cache.user';
 const DRAFT_KEY = 'fitos.draft.workout';
 const QUEUE_KEY = 'fitos.queue.workoutLogs';
+const HISTORY_KEY = 'fitos.cache.history';
 
 async function read<T>(key: string): Promise<T | null> {
   try {
@@ -65,6 +66,22 @@ export const consumePlanStale = () => {
   planStale = false;
   return stale;
 };
+
+// ---------- histórico de treinos ----------
+
+/** Histórico para a aba Progresso; sem rede, devolve a última cópia salva. */
+export async function loadHistory(): Promise<{ logs: LogSummary[]; offline: boolean }> {
+  try {
+    const logs = await api<LogSummary[]>('/workout/logs');
+    await write(HISTORY_KEY, logs);
+    return { logs, offline: false };
+  } catch (err) {
+    if (!isOffline(err)) throw err;
+    const cached = await read<LogSummary[]>(HISTORY_KEY);
+    if (!cached) throw err;
+    return { logs: cached, offline: true };
+  }
+}
 
 // ---------- treino em andamento ----------
 
@@ -128,5 +145,5 @@ export function syncPendingLogs(): Promise<number> {
 
 /** Apaga tudo que é do usuário (logout). */
 export async function clearOfflineData() {
-  await Promise.all([PLAN_KEY, USER_KEY, DRAFT_KEY, QUEUE_KEY].map((k) => write(k, null)));
+  await Promise.all([PLAN_KEY, USER_KEY, DRAFT_KEY, QUEUE_KEY, HISTORY_KEY].map((k) => write(k, null)));
 }

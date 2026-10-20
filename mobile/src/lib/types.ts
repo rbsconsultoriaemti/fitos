@@ -114,3 +114,39 @@ export interface DayLog {
   targets: { kcal: number | null; proteinG: number | null; carbG: number | null; fatG: number | null } | null;
   progress: { kcal: ProgressItem | null; proteinG: ProgressItem | null; carbG: ProgressItem | null; fatG: ProgressItem | null } | null;
 }
+
+export interface LogSummary {
+  id: string;
+  planId: string;
+  dayId: string;
+  performedAt: string;
+  perceivedEffort: number | null;
+  notes: string | null;
+  dayOfWeek: number | null;
+  muscleGroup: string | null;
+  setsDone: number;
+  volumeKg: number;
+  distanceKm: number;
+  durationMin: number;
+}
+
+interface LogSetValues {
+  sets: number;
+  reps: string | number | null;
+  loadKg: number | null;
+  durationMin: number | null;
+  distanceKm: number | null;
+}
+
+export interface LogDetail {
+  id: string;
+  performedAt: string;
+  perceivedEffort: number | null;
+  notes: string | null;
+  sets: {
+    setId: string;
+    exercise: string;
+    prescribed: LogSetValues & { reps: string | null };
+    done: LogSetValues & { reps: number | null };
+  }[];
+}

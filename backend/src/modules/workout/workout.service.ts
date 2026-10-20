@@ -584,13 +584,22 @@ export async function listLogs(auth: Auth, filter: { studentId?: string; planId?
   if (!studentId) throw new AppError(400, 'student_required', 'Informe studentId');
   if (!(await canAccessStudent(auth, studentId))) throw notFound('Aluno');
 
+  // Resumo por treino (séries, volume e cardio) para o histórico/estatísticas do app.
   const { rows } = await pool.query(
-    `SELECT id, plan_id AS "planId", day_id AS "dayId", performed_at AS "performedAt",
-            perceived_effort AS "perceivedEffort", notes
-     FROM workout_logs
-     WHERE student_id = $1 AND ($2::uuid IS NULL OR plan_id = $2)
-     ORDER BY performed_at DESC
-     LIMIT 100`,
+    `SELECT l.id, l.plan_id AS "planId", l.day_id AS "dayId", l.performed_at AS "performedAt",
+            l.perceived_effort AS "perceivedEffort", l.notes,
+            d.day_of_week AS "dayOfWeek", d.muscle_group AS "muscleGroup",
+            COALESCE(SUM(sl.sets_done), 0)::int AS "setsDone",
+            COALESCE(SUM(sl.sets_done * sl.reps_done * sl.load_done_kg), 0)::float8 AS "volumeKg",
+            COALESCE(SUM(sl.distance_done_km), 0)::float8 AS "distanceKm",
+            COALESCE(SUM(sl.duration_done_min), 0)::int AS "durationMin"
+     FROM workout_logs l
+     LEFT JOIN workout_days d ON d.id = l.day_id
+     LEFT JOIN set_logs sl ON sl.log_id = l.id
+     WHERE l.student_id = $1 AND ($2::uuid IS NULL OR l.plan_id = $2)
+     GROUP BY l.id, d.id
+     ORDER BY l.performed_at DESC
+     LIMIT 200`,
     [studentId, filter.planId ?? null],
   );
   return rows;
