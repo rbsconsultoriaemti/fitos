@@ -4,12 +4,14 @@ import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
 import { DaySummary } from '@/components/day-summary';
+import { EnergyCard } from '@/components/energy-card';
+import { ApplyFavoriteModal, SaveFavoriteModal } from '@/components/favorites';
 import { Button, Card, ErrorText, T } from '@/components/ui';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { confirm, errorMessage, notify } from '@/lib/dialog';
 import { addDays, dateLabel, fmt0, localDate, MEAL_LABELS, MEAL_ORDER } from '@/lib/format';
-import { getPendingFoodLogs, isOffline, loadDay, syncPendingFoodLogs, type PendingFoodLog } from '@/lib/offline';
-import type { DayLog, LogEntry, MealType } from '@/lib/types';
+import { addFoodLogs, getPendingFoodLogs, isOffline, loadDay, loadTemplates, syncPendingFoodLogs, type PendingFoodLog } from '@/lib/offline';
+import type { DayLog, LogEntry, MealTemplate, MealType } from '@/lib/types';
 import { space, useColors } from '@/theme';
 
 const quantityText = (e: LogEntry) =>
@@ -24,6 +26,9 @@ export default function Nutrition() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [templates, setTemplates] = useState<MealTemplate[]>([]);
+  const [saveFor, setSaveFor] = useState<MealType | null>(null); // refeição cujo conteúdo será salvo como favorita
+  const [applyFor, setApplyFor] = useState<MealType | null>(null); // refeição que receberá uma favorita
 
   const load = useCallback(async (d: string) => {
     try {
@@ -37,6 +42,7 @@ export default function Nutrition() {
       setError(errorMessage(err));
     }
     setPending((await getPendingFoodLogs()).filter((p) => p.date === d));
+    loadTemplates().then((r) => setTemplates(r.templates)).catch(() => undefined);
     setLoaded(true);
   }, []);
 
@@ -63,6 +69,67 @@ export default function Nutrition() {
   }
 
   const add = (meal: MealType) => router.push(`/food/search?meal=${meal}&date=${date}` as never);
+
+  const saveMeal = saveFor ? day?.meals.find((m) => m.type === saveFor) : undefined;
+
+  /** Salva os alimentos da refeição do dia como favorita. Devolve a mensagem de erro, se houver. */
+  async function saveFavorite(name: string): Promise<string | null> {
+    if (!saveMeal) return 'Refeição não encontrada.';
+    try {
+      await api('/nutrition/templates', {
+        method: 'POST',
+        body: {
+          name,
+          mealType: saveMeal.type,
+          items: saveMeal.entries.map((e) =>
+            e.portion ? { foodId: e.food.id, portion: e.portion } : { foodId: e.food.id, quantityG: e.quantityG },
+          ),
+        },
+      });
+      setTemplates((await loadTemplates()).templates);
+      setSaveFor(null);
+      notify('Favorita salva', `"${name}" já está em Favoritas.`);
+      return null;
+    } catch (err) {
+      if (isOffline(err)) return 'Salvar uma favorita exige internet.';
+      return err instanceof ApiError && err.status === 409 ? 'Você já tem uma favorita com esse nome.' : errorMessage(err);
+    }
+  }
+
+  /** Registra todos os alimentos da favorita na refeição escolhida (funciona offline: entra na fila). */
+  async function applyFavorite(t: MealTemplate): Promise<string | null> {
+    if (!applyFor) return null;
+    try {
+      const today = localDate();
+      const mealType = applyFor;
+      const { queued } = await addFoodLogs(
+        t.items.map((i) => ({
+          item: i.portion
+            ? { foodId: i.foodId, mealType, portion: i.portion }
+            : { foodId: i.foodId, mealType, quantityG: i.quantityG },
+          preview: { name: i.name, mealType, grams: i.quantityG, kcal: i.kcal },
+        })),
+        date,
+        today,
+      );
+      setApplyFor(null);
+      if (queued) notify('Salvo no aparelho', 'Sem conexão: os alimentos serão enviados quando houver internet.');
+      await load(date);
+      return null;
+    } catch (err) {
+      return errorMessage(err);
+    }
+  }
+
+  async function deleteFavorite(t: MealTemplate) {
+    if (!(await confirm('Excluir favorita', `Excluir "${t.name}"?`, 'Excluir'))) return;
+    try {
+      await api(`/nutrition/templates/${t.id}`, { method: 'DELETE' });
+      setTemplates((await loadTemplates()).templates);
+    } catch (err) {
+      notify('Erro', errorMessage(err));
+    }
+  }
 
   const pendingKcal = pending.reduce((sum, p) => sum + p.preview.kcal, 0);
 
@@ -99,6 +166,8 @@ export default function Nutrition() {
       <ErrorText>{error}</ErrorText>
       {offline ? <T variant="muted">Sem conexão: mostrando o último resumo salvo neste aparelho.</T> : null}
 
+      {day ? <EnergyCard day={day} onChanged={() => load(date)} /> : null}
+
       <Button
         title="📷  Foto → calorias"
         kind="secondary"
@@ -131,12 +200,13 @@ export default function Nutrition() {
 
       {MEAL_ORDER.map((type) => {
         const meal = day?.meals.find((m) => m.type === type);
+        const hasEntries = !!meal && meal.entries.length > 0;
         return (
           <Card key={type} style={{ gap: space.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <View>
                 <T variant="h2">{MEAL_LABELS[type]}</T>
-                {meal && meal.entries.length > 0 ? <T variant="muted">{`${fmt0(meal.totals.kcal)} kcal`}</T> : null}
+                {hasEntries ? <T variant="muted">{`${fmt0(meal.totals.kcal)} kcal`}</T> : null}
               </View>
               <Pressable accessibilityRole="button" accessibilityLabel={`Adicionar alimento em ${MEAL_LABELS[type]}`} hitSlop={8} onPress={() => add(type)}>
                 <Ionicons name="add-circle" size={34} color={c.primary} />
@@ -154,10 +224,34 @@ export default function Nutrition() {
                 </Pressable>
               </View>
             ))}
-            {meal && meal.entries.length === 0 ? <T variant="muted">Nada registrado.</T> : null}
+            {meal && !hasEntries ? <T variant="muted">Nada registrado.</T> : null}
+            <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' }}>
+              {hasEntries ? (
+                <Button title="★ Salvar como favorita" kind="ghost" disabled={offline} onPress={() => setSaveFor(type)} />
+              ) : null}
+              <Button title="Favoritas" kind="ghost" onPress={() => setApplyFor(type)} />
+            </View>
           </Card>
         );
       })}
+
+      <SaveFavoriteModal
+        visible={saveFor !== null}
+        mealLabel={saveFor ? MEAL_LABELS[saveFor] : ''}
+        itemCount={saveMeal?.entries.length ?? 0}
+        kcal={saveMeal?.totals.kcal ?? 0}
+        onSave={saveFavorite}
+        onClose={() => setSaveFor(null)}
+      />
+      <ApplyFavoriteModal
+        visible={applyFor !== null}
+        mealLabel={applyFor ? MEAL_LABELS[applyFor] : ''}
+        templates={templates}
+        offline={offline}
+        onApply={applyFavorite}
+        onDelete={deleteFavorite}
+        onClose={() => setApplyFor(null)}
+      />
     </ScrollView>
   );
 }

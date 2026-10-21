@@ -15,6 +15,7 @@
     "migrate:create": "npm run migrate -- create",
     "seed:taco": "tsx src/database/seeds/import-taco.ts",
     "seed:images": "tsx src/database/seeds/exercise-images.ts",
+    "seed:openfoodfacts": "tsx src/database/seeds/openfoodfacts.ts",
     "seed:portions": "tsx src/database/seeds/run-sql.ts food-portions.sql",
     "job:daily-summaries": "tsx src/jobs/daily-summaries.ts"
   },

@@ -43,15 +43,23 @@ export function mmss(totalSeconds: number): string {
   return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
 }
 
-export const MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
-export const MEAL_LABELS = { breakfast: 'Café', lunch: 'Almoço', dinner: 'Jantar', snack: 'Lanche' } as const;
+export const MEAL_ORDER = ['breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner'] as const;
+export const MEAL_LABELS = {
+  breakfast: 'Café',
+  morning_snack: 'Lanche manhã',
+  lunch: 'Almoço',
+  afternoon_snack: 'Lanche tarde',
+  dinner: 'Jantar',
+  snack: 'Lanche', // tipo antigo: itens salvos offline por uma versão anterior do app
+} as const;
 
 /** Refeição provável pelo horário (para pré-selecionar). */
 export function defaultMeal(d = new Date()): (typeof MEAL_ORDER)[number] {
   const h = d.getHours();
   if (h < 10) return 'breakfast';
+  if (h < 12) return 'morning_snack';
   if (h < 15) return 'lunch';
-  if (h < 18) return 'snack';
+  if (h < 18) return 'afternoon_snack';
   return 'dinner';
 }
 

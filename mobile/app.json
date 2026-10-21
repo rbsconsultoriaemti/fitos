@@ -38,6 +38,13 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "O FitOS usa a câmera para ler o código de barras dos produtos.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#16A34A",

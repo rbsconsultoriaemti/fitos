@@ -3,10 +3,14 @@ import { pool } from '../../database/pool';
 import { config } from '../../shared/config';
 import { AppError } from '../../shared/errors';
 import { AccessTokenPayload } from '../auth/auth.service';
-import { CreateLogInput, CreatePlanInput, mealTypes, PlanContent, UpdateLogInput } from './nutrition.schemas';
+import { computeEnergyTarget } from './energy.service';
+import { CreateLogInput, CreatePlanInput, mealInputTypes, mealTypes, PlanContent, UpdateLogInput } from './nutrition.schemas';
+import { fetchOffProduct, upsertOffFood } from './openfoodfacts';
 
 type Auth = AccessTokenPayload;
 type Db = Pick<PoolClient, 'query'>;
+type MealType = (typeof mealTypes)[number];
+type MealInput = (typeof mealInputTypes)[number];
 
 const notFound = (what: string) => new AppError(404, 'not_found', `${what} não encontrado`);
 const num = (v: string | null) => (v === null ? null : Number(v));
@@ -30,7 +34,7 @@ async function canAccessPatient(auth: Auth, patientId: string) {
 
 // ---------- alimentos ----------
 
-const foodCols = (a = '') => `${a}id, ${a}name, ${a}source, ${a}category, ${a}kcal_per_100g AS "kcalPer100g",
+export const foodCols = (a = '') => `${a}id, ${a}name, ${a}source, ${a}category, ${a}kcal_per_100g AS "kcalPer100g",
   ${a}protein_per_100g AS "proteinPer100g", ${a}carb_per_100g AS "carbPer100g", ${a}fat_per_100g AS "fatPer100g",
   ${a}barcode, ${a}portions`;
 const FOOD_COLS = foodCols();
@@ -40,7 +44,7 @@ interface Portion {
   grams: number;
 }
 
-function foodOut(r: any) {
+export function foodOut(r: any) {
   return {
     ...r,
     kcalPer100g: Number(r.kcalPer100g),
@@ -77,6 +81,7 @@ export async function listFoods(filter: { q?: string; category?: string }) {
                             OR (length(t) >= 5 AND word_similarity(t, f.name_search) >= 0.6))
             FROM unnest(q.toks) t)
      ORDER BY (SELECT bool_and(f.name_search LIKE '%' || t || '%') FROM unnest(q.toks) t) DESC,
+              (f.source = 'taco') DESC, -- alimento genérico da TACO antes de produtos de marca
               (f.name_search LIKE q.toks[1] || '%') DESC,
               word_similarity(q.s, f.name_search) DESC,
               length(f.name), f.name
@@ -90,6 +95,23 @@ export async function getFood(id: string) {
   const { rows } = await pool.query(`SELECT ${FOOD_COLS} FROM foods WHERE id = $1`, [id]);
   if (!rows[0]) throw notFound('Alimento');
   return foodOut(rows[0]);
+}
+
+/**
+ * Alimento pelo código de barras. Procura no banco; se não achar, consulta o Open Food Facts e guarda o
+ * produto (só com dados completos de macros), então o próximo scan já vem do banco.
+ */
+export async function findFoodByBarcode(barcode: string) {
+  const { rows } = await pool.query(
+    `SELECT ${FOOD_COLS} FROM foods WHERE barcode = $1
+     ORDER BY (source = 'custom') DESC, (source = 'taco') DESC LIMIT 1`,
+    [barcode],
+  );
+  if (rows[0]) return foodOut(rows[0]);
+
+  const product = await fetchOffProduct(barcode);
+  if (!product) throw notFound('Produto');
+  return getFood(await upsertOffFood(product));
 }
 
 export async function createFood(input: {
@@ -420,12 +442,22 @@ export async function archivePlan(auth: Auth, id: string) {
 
 // ---------- log de comida ----------
 
-const MEAL_LABELS: Record<(typeof mealTypes)[number], string> = {
+const MEAL_LABELS: Record<MealType, string> = {
   breakfast: 'Café da manhã',
+  morning_snack: 'Lanche da manhã',
   lunch: 'Almoço',
+  afternoon_snack: 'Lanche da tarde',
   dinner: 'Jantar',
-  snack: 'Lanche',
 };
+
+/** O tipo antigo 'snack' vira lanche da manhã (antes do meio-dia) ou da tarde, no fuso do app. */
+export function normalizeMealType(type: MealInput, at?: string | null): MealType {
+  if (type !== 'snack') return type;
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: config.timezone }).format(at ? new Date(at) : new Date()),
+  );
+  return hour < 12 ? 'morning_snack' : 'afternoon_snack';
+}
 
 interface Macros {
   kcal: number;
@@ -443,7 +475,7 @@ const sumMacros = (items: Macros[]): Macros => {
 };
 
 /** Gramas a partir de `quantityG` ou de uma porção caseira do alimento (ex.: 2 × "fatia"). */
-function resolveQuantity(
+export function resolveQuantity(
   food: { name: string; portions: Portion[] },
   q: { quantityG?: number; portion?: { label: string; count: number } },
 ) {
@@ -475,7 +507,7 @@ async function loadEntries(where: string, params: unknown[]) {
     return {
       id: r.id,
       food: { id: r.food_id, name: r.name },
-      mealType: r.meal_type as (typeof mealTypes)[number],
+      mealType: r.meal_type as MealType,
       mealId: r.meal_id,
       quantityG: Number(r.quantity_g),
       portion: r.portion_label ? { label: r.portion_label, count: Number(r.portion_count) } : null,
@@ -526,7 +558,7 @@ export async function createLogs(auth: Auth, input: CreateLogInput) {
           auth.sub,
           item.foodId,
           item.mealId ?? null,
-          item.mealType,
+          normalizeMealType(item.mealType, input.loggedAt),
           q.quantityG,
           q.portionLabel,
           q.portionCount,
@@ -573,7 +605,7 @@ export async function updateLog(auth: Auth, id: string, input: UpdateLogInput) {
     set('portion_label', q.portionLabel);
     set('portion_count', q.portionCount);
   }
-  if (input.mealType !== undefined) set('meal_type', input.mealType);
+  if (input.mealType !== undefined) set('meal_type', normalizeMealType(input.mealType, input.loggedAt));
   if (input.loggedAt !== undefined) set('logged_at', input.loggedAt, '::timestamptz');
 
   await pool.query(`UPDATE food_logs SET ${sets.join(', ')} WHERE id = $1`, params);
@@ -583,7 +615,7 @@ export async function updateLog(auth: Auth, id: string, input: UpdateLogInput) {
 const MACRO_KEYS = ['kcal', 'proteinG', 'carbG', 'fatG'] as const;
 
 /**
- * Resumo do dia (fuso de config.timezone): itens agrupados por refeição (café, almoço, jantar, lanche),
+ * Resumo do dia (fuso de config.timezone): itens agrupados por refeição (café, lanche da manhã, almoço, lanche da tarde, jantar),
  * totais, e consumido × meta × quanto falta, quando há plano ativo com metas.
  */
 export async function getDayLog(auth: Auth, filter: { date?: string; userId?: string }) {
@@ -609,14 +641,21 @@ export async function getDayLog(auth: Auth, filter: { date?: string; userId?: st
     [userId],
   );
   const plan = plans[0];
-  const targets = plan
-    ? {
-        kcal: num(plan.target_kcal),
-        proteinG: num(plan.target_protein_g),
-        carbG: num(plan.target_carb_g),
-        fatG: num(plan.target_fat_g),
-      }
-    : null;
+  // Meta de calorias: a manual do usuário > a do plano alimentar > a calculada pelo perfil e treinos do dia.
+  const energy = await computeEnergyTarget(userId, date);
+  const planKcal = plan ? num(plan.target_kcal) : null;
+  const kcalTarget = energy.overrideKcal ?? planKcal ?? energy.breakdown?.dynamicKcal ?? null;
+  const kcalSource = energy.overrideKcal !== null ? 'override' : planKcal !== null ? 'plan' : kcalTarget !== null ? 'dynamic' : null;
+  const targets =
+    plan || kcalTarget !== null
+      ? {
+          kcal: kcalTarget,
+          kcalSource,
+          proteinG: plan ? num(plan.target_protein_g) : null,
+          carbG: plan ? num(plan.target_carb_g) : null,
+          fatG: plan ? num(plan.target_fat_g) : null,
+        }
+      : null;
 
   const progress = targets
     ? Object.fromEntries(
@@ -647,6 +686,7 @@ export async function getDayLog(auth: Auth, filter: { date?: string; userId?: st
     totals,
     targets,
     progress,
+    energy,
   };
 }
 

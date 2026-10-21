@@ -66,7 +66,7 @@ export interface WorkoutPlan extends PlanSummary {
 
 // ---------- nutrição ----------
 
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+export type MealType = 'breakfast' | 'morning_snack' | 'lunch' | 'afternoon_snack' | 'dinner';
 
 export interface Portion {
   label: string;
@@ -76,13 +76,14 @@ export interface Portion {
 export interface Food {
   id: string;
   name: string;
-  source: 'taco' | 'custom';
+  source: 'taco' | 'custom' | 'openfoodfacts';
   category: string | null;
   kcalPer100g: number;
   proteinPer100g: number;
   carbPer100g: number;
   fatPer100g: number;
   portions: Portion[];
+  barcode: string | null;
 }
 
 export interface Macros {
@@ -111,8 +112,15 @@ export interface DayLog {
   date: string;
   meals: { type: MealType; label: string; totals: Macros; entries: LogEntry[] }[];
   totals: Macros;
-  targets: { kcal: number | null; proteinG: number | null; carbG: number | null; fatG: number | null } | null;
+  targets: {
+    kcal: number | null;
+    kcalSource: 'override' | 'plan' | 'dynamic' | null;
+    proteinG: number | null;
+    carbG: number | null;
+    fatG: number | null;
+  } | null;
   progress: { kcal: ProgressItem | null; proteinG: ProgressItem | null; carbG: ProgressItem | null; fatG: ProgressItem | null } | null;
+  energy?: EnergyTarget;
 }
 
 export interface LogSummary {
@@ -197,4 +205,36 @@ export interface NewFoodLog {
   mealType: MealType;
   quantityG?: number;
   portion?: { label: string; count: number };
+}
+
+/** Meta de calorias: Mifflin-St Jeor × 1,2 + treinos do dia, ou a definida pelo usuário. */
+export interface EnergyTarget {
+  kcal: number | null;
+  source: 'override' | 'dynamic' | null;
+  overrideKcal: number | null;
+  missing: string[]; // campos do perfil que faltam: weight, height, birthDate, sex
+  breakdown: {
+    bmr: number;
+    baseKcal: number;
+    exerciseKcal: number;
+    activityFactor: number;
+    trainingMinutes: number;
+    sessions: number;
+    muscleGroups: string[];
+    dynamicKcal: number;
+  } | null;
+}
+
+export interface MealTemplate {
+  id: string;
+  name: string;
+  mealType: MealType | null;
+  items: {
+    foodId: string;
+    name: string;
+    quantityG: number;
+    portion: { label: string; count: number } | null;
+    kcal: number;
+  }[];
+  totals: Macros;
 }

@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 
 import { api, ApiError } from './api';
 import { normalize } from './format';
-import type { DayLog, Food, FoodCandidate, LogSummary, MealType, NewFoodLog, PlanSummary, User, WorkoutPlan } from './types';
+import type { DayLog, Food, FoodCandidate, LogSummary, MealTemplate, MealType, NewFoodLog, PlanSummary, User, WorkoutPlan } from './types';
 
 // Tudo que o treino precisa para funcionar sem sinal (academia no subsolo):
 // plano ativo em cache, treino em andamento salvo no aparelho e fila de treinos finalizados offline.
@@ -17,6 +17,7 @@ const DAYS_KEY = 'fitos.cache.nutritionDays';
 const FOODS_KEY = 'fitos.cache.foods';
 const RECENT_KEY = 'fitos.cache.recentFoods';
 const FOOD_QUEUE_KEY = 'fitos.queue.foodLogs';
+const TEMPLATES_KEY = 'fitos.cache.mealTemplates';
 
 async function read<T>(key: string): Promise<T | null> {
   try {
@@ -221,6 +222,29 @@ export async function getFood(id: string): Promise<Food> {
   return food;
 }
 
+/** Alimento pelo código de barras: primeiro entre os já vistos neste aparelho (funciona offline), depois na API. */
+export async function findFoodByBarcode(code: string): Promise<Food> {
+  const cached = Object.values((await read<Record<string, Food>>(FOODS_KEY)) ?? {}).find((f) => f.barcode === code);
+  if (cached) return cached;
+  const food = await api<Food>(`/nutrition/foods/barcode/${code}`);
+  await cacheFoods([food]);
+  return food;
+}
+
+// ---------- refeições favoritas ----------
+
+/** Favoritas do usuário; sem rede, a última cópia salva. */
+export async function loadTemplates(): Promise<{ templates: MealTemplate[]; offline: boolean }> {
+  try {
+    const templates = await api<MealTemplate[]>('/nutrition/templates');
+    await write(TEMPLATES_KEY, templates);
+    return { templates, offline: false };
+  } catch (err) {
+    if (!isOffline(err)) throw err;
+    return { templates: (await read<MealTemplate[]>(TEMPLATES_KEY)) ?? [], offline: true };
+  }
+}
+
 export const foodToCandidate = (f: Food): FoodCandidate => ({
   foodId: f.id,
   name: f.name,
@@ -309,5 +333,5 @@ export async function addFoodLogs(
 
 /** Apaga tudo que é do usuário (logout). */
 export async function clearOfflineData() {
-  await Promise.all([PLAN_KEY, USER_KEY, DRAFT_KEY, QUEUE_KEY, HISTORY_KEY, DAYS_KEY, FOODS_KEY, RECENT_KEY, FOOD_QUEUE_KEY].map((k) => write(k, null)));
+  await Promise.all([PLAN_KEY, USER_KEY, DRAFT_KEY, QUEUE_KEY, HISTORY_KEY, DAYS_KEY, FOODS_KEY, RECENT_KEY, FOOD_QUEUE_KEY, TEMPLATES_KEY].map((k) => write(k, null)));
 }

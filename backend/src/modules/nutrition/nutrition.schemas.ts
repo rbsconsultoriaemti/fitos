@@ -57,7 +57,10 @@ export const listPlansSchema = z.object({
   status: z.enum(['draft', 'active', 'archived']).optional(),
 });
 
-export const mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'] as const; // café, almoço, jantar, lanche
+// Café, lanche da manhã, almoço, lanche da tarde, jantar (ordem de exibição).
+export const mealTypes = ['breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner'] as const;
+// 'snack' é o tipo antigo (apps antigos e filas offline): vira lanche da manhã/tarde pelo horário.
+export const mealInputTypes = [...mealTypes, 'snack'] as const;
 
 // Quantidade: em gramas OU em porções caseiras do alimento (ex.: 2 × "fatia"). Exatamente uma das duas.
 const quantityFields = {
@@ -75,7 +78,7 @@ export const createLogSchema = z.object({
       z
         .object({
           foodId: z.uuid(),
-          mealType: z.enum(mealTypes),
+          mealType: z.enum(mealInputTypes),
           mealId: z.uuid().optional(), // refeição do plano alimentar ativo, opcional
           ...quantityFields,
         })
@@ -89,7 +92,7 @@ export const createLogSchema = z.object({
 
 export const updateLogSchema = z
   .object({
-    mealType: z.enum(mealTypes).optional(),
+    mealType: z.enum(mealInputTypes).optional(),
     loggedAt: z.iso.datetime().optional(),
     ...quantityFields,
   })
@@ -101,7 +104,31 @@ export const listLogsSchema = z.object({
   userId: z.uuid().optional(),
 });
 
+export const barcodeParam = z.object({ code: z.string().regex(/^\d{8,14}$/, 'Código de barras inválido') });
+
+// Refeições favoritas
+const templateItemSchema = z
+  .object({ foodId: z.uuid(), ...quantityFields })
+  .refine(oneQuantity, QUANTITY_MSG);
+
+export const createTemplateSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  mealType: z.enum(mealTypes).optional(),
+  items: z.array(templateItemSchema).min(1).max(30),
+});
+
+export const applyTemplateSchema = z.object({
+  mealType: z.enum(mealInputTypes).optional(),
+  loggedAt: z.iso.datetime().optional(),
+});
+
+// Meta de calorias: `overrideKcal: null` volta para a meta calculada.
+export const energyTargetQuerySchema = z.object({ date: z.iso.date().optional() });
+export const setEnergyTargetSchema = z.object({ overrideKcal: z.number().int().min(800).max(10000).nullable() });
+
 export type PlanContent = z.infer<typeof updatePlanSchema>;
 export type CreatePlanInput = z.infer<typeof createPlanSchema>;
 export type CreateLogInput = z.infer<typeof createLogSchema>;
 export type UpdateLogInput = z.infer<typeof updateLogSchema>;
+export type CreateTemplateInput = z.infer<typeof createTemplateSchema>;
+export type ApplyTemplateInput = z.infer<typeof applyTemplateSchema>;

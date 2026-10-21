@@ -4,17 +4,24 @@ import { AppError } from '../../shared/errors';
 import { wrap } from '../../shared/http';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
 import {
+  applyTemplateSchema,
+  barcodeParam,
   createFoodSchema,
   createLogSchema,
   createPlanSchema,
+  createTemplateSchema,
+  energyTargetQuerySchema,
   listFoodsSchema,
   listLogsSchema,
   listPlansSchema,
+  setEnergyTargetSchema,
   setPortionsSchema,
   updateLogSchema,
   updatePlanSchema,
 } from './nutrition.schemas';
+import { computeEnergyTarget, setEnergyOverride } from './energy.service';
 import * as service from './nutrition.service';
+import * as templates from './templates.service';
 import { recognizeMeal } from './recognition.service';
 
 const idParam = z.object({ id: z.uuid() });
@@ -28,6 +35,12 @@ nutritionRouter.get(
   '/foods',
   wrap(async (req, res) => {
     res.json(await service.listFoods(listFoodsSchema.parse(req.query)));
+  }),
+);
+nutritionRouter.get(
+  '/foods/barcode/:code',
+  wrap(async (req, res) => {
+    res.json(await service.findFoodByBarcode(barcodeParam.parse(req.params).code));
   }),
 );
 nutritionRouter.get(
@@ -128,5 +141,50 @@ nutritionRouter.delete(
   wrap(async (req, res) => {
     await service.deleteLog(req.auth!, idParam.parse(req.params).id);
     res.status(204).end();
+  }),
+);
+
+// Refeições favoritas
+nutritionRouter.post(
+  '/templates',
+  wrap(async (req, res) => {
+    res.status(201).json(await templates.createTemplate(req.auth!, createTemplateSchema.parse(req.body)));
+  }),
+);
+nutritionRouter.get(
+  '/templates',
+  wrap(async (req, res) => {
+    res.json(await templates.listTemplates(req.auth!));
+  }),
+);
+nutritionRouter.post(
+  '/templates/:id/apply',
+  wrap(async (req, res) => {
+    res.status(201).json(await templates.applyTemplate(req.auth!, idParam.parse(req.params).id, applyTemplateSchema.parse(req.body ?? {})));
+  }),
+);
+nutritionRouter.delete(
+  '/templates/:id',
+  wrap(async (req, res) => {
+    await templates.deleteTemplate(req.auth!, idParam.parse(req.params).id);
+    res.status(204).end();
+  }),
+);
+
+// Meta de calorias (calculada pelo perfil e pelos treinos do dia; o usuário pode sobrescrever)
+nutritionRouter.get(
+  '/energy-target',
+  wrap(async (req, res) => {
+    const { date } = energyTargetQuerySchema.parse(req.query);
+    const day = date ?? (await service.getDayLog(req.auth!, {})).date;
+    res.json({ date: day, ...(await computeEnergyTarget(req.auth!.sub, day)) });
+  }),
+);
+nutritionRouter.put(
+  '/energy-target',
+  wrap(async (req, res) => {
+    await setEnergyOverride(req.auth!.sub, setEnergyTargetSchema.parse(req.body).overrideKcal);
+    const day = (await service.getDayLog(req.auth!, {})).date;
+    res.json({ date: day, ...(await computeEnergyTarget(req.auth!.sub, day)) });
   }),
 );
