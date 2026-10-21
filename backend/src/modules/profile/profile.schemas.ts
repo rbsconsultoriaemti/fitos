@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { onboardingProgressSchema } from '../onboarding/onboarding.schemas';
 
 // Todos os campos são opcionais; `null` apaga o valor. Campos ausentes não são alterados.
 export const updateProfileSchema = z.object({
@@ -21,6 +22,8 @@ export const updateProfileSchema = z.object({
   goal: z.string().trim().max(500).nullable().optional(),
   fitnessLevel: z.enum(['beginner', 'intermediate', 'advanced']).nullable().optional(),
   restrictions: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
+  // Progresso do questionário de onboarding (etapa de retomada + respostas dadas até agora).
+  onboarding: onboardingProgressSchema.optional(),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

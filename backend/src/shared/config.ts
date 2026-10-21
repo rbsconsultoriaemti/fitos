@@ -16,6 +16,12 @@ export const config = {
     url: process.env.AI_SERVICE_URL ?? 'http://localhost:8000',
     token: process.env.AI_SERVICE_TOKEN ?? '',
   },
+  // Claude API chamada direto pelo backend (geração do plano no onboarding). Mesmo .env que o ai-service lê.
+  anthropic: {
+    apiKey: process.env.ANTHROPIC_API_KEY ?? '',
+    model: process.env.ANTHROPIC_MODEL ?? 'claude-opus-4-5',
+    baseUrl: process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com', // só muda em testes
+  },
   invite: {
     // Deep link / URL aberta pelo aluno; o token é anexado ao final.
     baseUrl: process.env.INVITE_BASE_URL ?? 'fitos://invite/',

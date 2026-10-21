@@ -6,6 +6,7 @@ import { pool } from './database/pool';
 import { authRouter } from './modules/auth/auth.routes';
 import { invitesRouter } from './modules/auth/invites.routes';
 import { nutritionRouter } from './modules/nutrition/nutrition.routes';
+import { onboardingRouter } from './modules/onboarding/onboarding.routes';
 import { profileRouter } from './modules/profile/profile.routes';
 import { workoutRouter } from './modules/workout/workout.routes';
 import { config } from './shared/config';
@@ -48,6 +49,7 @@ export function createApp() {
   app.use('/workout', workoutRouter);
   app.use('/nutrition', nutritionRouter);
   app.use('/profile', profileRouter);
+  app.use('/onboarding', onboardingRouter);
   // Próximos módulos entram aqui conforme forem construídos.
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

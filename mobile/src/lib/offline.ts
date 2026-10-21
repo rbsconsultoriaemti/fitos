@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 
 import { api, ApiError } from './api';
 import { normalize } from './format';
+import { ONBOARDING_KEYS } from './onboarding';
 import type { DayLog, Food, FoodCandidate, LogSummary, MealTemplate, MealType, NewFoodLog, PlanSummary, User, WorkoutPlan } from './types';
 
 // Tudo que o treino precisa para funcionar sem sinal (academia no subsolo):
@@ -333,5 +334,5 @@ export async function addFoodLogs(
 
 /** Apaga tudo que é do usuário (logout). */
 export async function clearOfflineData() {
-  await Promise.all([PLAN_KEY, USER_KEY, DRAFT_KEY, QUEUE_KEY, HISTORY_KEY, DAYS_KEY, FOODS_KEY, RECENT_KEY, FOOD_QUEUE_KEY, TEMPLATES_KEY].map((k) => write(k, null)));
+  await Promise.all([PLAN_KEY, USER_KEY, DRAFT_KEY, QUEUE_KEY, HISTORY_KEY, DAYS_KEY, FOODS_KEY, RECENT_KEY, FOOD_QUEUE_KEY, TEMPLATES_KEY, ...ONBOARDING_KEYS].map((k) => write(k, null)));
 }

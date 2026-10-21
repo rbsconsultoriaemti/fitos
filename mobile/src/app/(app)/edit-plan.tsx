@@ -115,7 +115,7 @@ export default function EditPlan() {
         const { plan: p, offline } = await loadActivePlan();
         if (offline) return setError('Sem conexão. Para editar o plano é preciso estar online — o treino salvo no aparelho continua funcionando.');
         if (!p) return setError('Você ainda não tem um plano ativo.');
-        if (p.source !== 'self') return setError('Este plano foi prescrito pelo seu profissional. Peça a ele para editar.');
+        if (p.source === 'trainer') return setError('Este plano foi prescrito pelo seu profissional. Peça a ele para editar.');
         const d = fromPlan(p);
         setPlan(p);
         setDays(d);

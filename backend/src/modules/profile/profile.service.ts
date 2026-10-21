@@ -4,12 +4,23 @@ import type { UpdateProfileInput } from './profile.schemas';
 
 const num = (v: string | null) => (v === null ? null : Number(v));
 
+/**
+ * O onboarding aparece enquanto não foi concluído e (a) faltam dados básicos do perfil ou (b) o questionário
+ * já foi iniciado (retoma de onde parou). Quem preencheu o perfil pela aba Perfil não é interrompido.
+ */
+function onboardingNeeded(r: Record<string, unknown>) {
+  if (r.onboardingCompletedAt) return false;
+  const basicsMissing = !r.birthDate || !r.sex || r.height_cm === null || r.weight_kg === null;
+  return basicsMissing || r.onboarding !== null;
+}
+
 export async function getProfile(userId: string) {
   const { rows } = await pool.query(
     `SELECT u.name, u.email, to_char(p.birth_date, 'YYYY-MM-DD') AS "birthDate", p.sex,
             p.height_cm, p.weight_kg, p.body_fat_pct, p.resting_hr_bpm AS "restingHrBpm",
             p.max_hr_bpm AS "maxHrBpm", p.goal, p.fitness_level AS "fitnessLevel",
-            COALESCE(p.restrictions, '{}') AS restrictions
+            COALESCE(p.restrictions, '{}') AS restrictions,
+            p.onboarding, p.onboarding_step AS "onboardingStep", p.onboarding_completed_at AS "onboardingCompletedAt"
      FROM users u LEFT JOIN profiles p ON p.user_id = u.id
      WHERE u.id = $1`,
     [userId],
@@ -29,6 +40,12 @@ export async function getProfile(userId: string) {
     goal: r.goal,
     fitnessLevel: r.fitnessLevel,
     restrictions: r.restrictions as string[],
+    onboarding: {
+      step: (r.onboardingStep as number | null) ?? 1,
+      answers: (r.onboarding as Record<string, unknown> | null) ?? {},
+      completedAt: r.onboardingCompletedAt as Date | null,
+    },
+    onboardingNeeded: onboardingNeeded(r),
   };
 }
 
@@ -47,7 +64,7 @@ const COLUMNS = {
 } as const;
 
 export async function updateProfile(userId: string, input: UpdateProfileInput) {
-  const { name, ...fields } = input;
+  const { name, onboarding, ...fields } = input;
   const entries = (Object.keys(COLUMNS) as (keyof typeof COLUMNS)[]).filter((k) => fields[k] !== undefined);
 
   const resting = fields.restingHrBpm;
@@ -68,6 +85,16 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
         `INSERT INTO profiles (user_id, ${cols.join(', ')}) VALUES ($1, ${cols.map((_, i) => `$${i + 2}`).join(', ')})
          ON CONFLICT (user_id) DO UPDATE SET ${sets}`,
         [userId, ...values],
+      );
+    }
+    if (onboarding) {
+      // Respostas novas se somam às anteriores; a etapa de retomada é a última enviada.
+      await client.query(
+        `INSERT INTO profiles (user_id, onboarding, onboarding_step) VALUES ($1, $2::jsonb, $3)
+         ON CONFLICT (user_id) DO UPDATE
+         SET onboarding = COALESCE(profiles.onboarding, '{}'::jsonb) || EXCLUDED.onboarding,
+             onboarding_step = EXCLUDED.onboarding_step`,
+        [userId, JSON.stringify(onboarding.answers), onboarding.step],
       );
     }
     await client.query('COMMIT');

@@ -5,6 +5,7 @@
 
 ## Telas
 - `(auth)/login`, `(auth)/register` (cadastro sempre como `student`)
+- `onboarding` — questionário de 7 etapas com barra de progresso (dados pessoais, objetivo, nível, rotina, alimentação, saúde, resumo). Abre sozinho após o login quando `GET /profile` devolve `onboardingNeeded` (só `student`). Salva a cada etapa (rascunho local + `PUT /profile` com `onboarding`), permite voltar/editar, pular as etapas 5 e 6 e "Preencher depois". "Criar meu plano" → `POST /onboarding/complete` (animação de loading) → aba Treino. Lógica/opções em `src/lib/onboarding.ts`
 - `(tabs)/index` — Início: treino de hoje + resumo nutricional do dia
 - `(tabs)/workout` — séries, carga/reps, descanso com vibração, finalizar treino
 - `(tabs)/nutrition` — dia (navegação por data), card da meta de calorias (calculada pelo perfil + treinos do dia; "Ajustar" define meta manual), resumo kcal/macros × meta, 5 refeições (Café, Lanche manhã, Almoço, Lanche tarde, Jantar) com alimentos, "+", "★ Salvar como favorita" e "Favoritas" (registra tudo de uma vez), remover alimento, botão Foto → calorias

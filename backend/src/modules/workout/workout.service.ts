@@ -101,6 +101,10 @@ async function assertExercisesExist(db: Db, days: PlanContent['days']) {
   }
 }
 
+export async function insertPlanContent(db: Db, planId: string, days: PlanContent['days']) {
+  return insertContent(db, planId, days);
+}
+
 async function insertContent(db: Db, planId: string, days: PlanContent['days']) {
   await assertExercisesExist(db, days);
 
@@ -134,6 +138,10 @@ async function loadPlanRow(id: string, db: Db = pool): Promise<PlanRow | null> {
   const { rows } = await db.query<PlanRow>('SELECT * FROM workout_plans WHERE id = $1', [id]);
   return rows[0] ?? null;
 }
+
+/** Planos do próprio aluno (`self`) e os gerados pela IA para ele (`ai`) são editáveis pelo dono. */
+const isOwnerEditable = (plan: PlanRow, auth: Auth) =>
+  plan.owner_id === auth.sub && (plan.source === 'self' || plan.source === 'ai');
 
 /** Quem pode ver o plano. Rascunho só é visível ao profissional que o prescreveu (e ao admin). */
 async function assertCanView(auth: Auth, plan: PlanRow) {
@@ -412,7 +420,7 @@ export async function updatePlan(auth: Auth, id: string, content: PlanContent) {
     const plan = rows[0];
     if (!plan) throw notFound('Plano');
 
-    const isSelf = plan.source === 'self';
+    const isSelf = isOwnerEditable(plan, auth);
     if (isSelf) {
       if (plan.owner_id !== auth.sub) throw notFound('Plano');
       if (plan.status === 'archived') throw new AppError(409, 'plan_archived', 'Plano arquivado não pode ser editado');
@@ -463,7 +471,7 @@ export async function approvePlan(auth: Auth, id: string) {
 export async function archivePlan(auth: Auth, id: string) {
   const plan = await loadPlanRow(id);
   if (!plan) throw notFound('Plano');
-  const isSelfOwner = plan.source === 'self' && plan.owner_id === auth.sub;
+  const isSelfOwner = isOwnerEditable(plan, auth);
   if (!isSelfOwner) assertPrescriber(auth, plan);
   await pool.query(`UPDATE workout_plans SET status = 'archived' WHERE id = $1`, [id]);
   return getPlan(auth, id);

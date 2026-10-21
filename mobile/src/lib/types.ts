@@ -172,6 +172,9 @@ export interface Profile {
   goal: string | null;
   fitnessLevel: 'beginner' | 'intermediate' | 'advanced' | null;
   restrictions: string[];
+  /** Questionário de onboarding: etapa de retomada e respostas já salvas. */
+  onboarding: { step: number; answers: Record<string, unknown>; completedAt: string | null };
+  onboardingNeeded: boolean;
 }
 
 /** Alimento candidato da base (resultado do reconhecimento por foto ou escolha manual). */
