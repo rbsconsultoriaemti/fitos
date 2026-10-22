@@ -27,7 +27,11 @@ interface Row {
   candidates: FoodCandidate[];
   selectedId: string | null;
   included: boolean;
+  manual?: boolean; // adicionado pelo usuário (não veio da IA)
 }
+
+const ADD_NEW = 'add-new';
+const DEFAULT_ADDED_GRAMS = '100';
 
 export default function Photo() {
   const c = useColors();
@@ -131,12 +135,28 @@ export default function Photo() {
     capture('camera').catch((err) => setError(errorMessage(err)));
   }, []);
 
-  // Voltando da busca ("Buscar outro alimento"): troca o alimento do item.
+  // Voltando da busca: "Buscar outro alimento" troca o alimento do item; "+ Adicionar alimento" cria um item novo (100 g).
   useFocusEffect(
     useCallback(() => {
       const food = consumePickedFood();
       const key = pickFor.current;
-      if (food && key) {
+      if (food && key === ADD_NEW) {
+        const cand = foodToCandidate(food);
+        setRows((rs) => [
+          ...(rs ?? []),
+          {
+            key: `manual-${Date.now()}`,
+            name: foodLabel(cand),
+            confidence: 1,
+            grams: DEFAULT_ADDED_GRAMS,
+            estimated: { kcal: 0, proteinG: 0, carbG: 0, fatG: 0 },
+            candidates: [cand],
+            selectedId: cand.foodId,
+            included: true,
+            manual: true,
+          },
+        ]);
+      } else if (food && key) {
         const cand = foodToCandidate(food);
         setRows((rs) =>
           rs?.map((r) =>
@@ -178,6 +198,17 @@ export default function Photo() {
       setSaving(false);
     }
   }
+
+  const addButton = (
+    <Button
+      title="+ Adicionar alimento"
+      kind="secondary"
+      onPress={() => {
+        pickFor.current = ADD_NEW;
+        router.push('/food/search?mode=pick' as never);
+      }}
+    />
+  );
 
   void meal; // a refeição é escolhida abaixo, pré-selecionada pelo horário
 
@@ -232,7 +263,12 @@ export default function Photo() {
         </View>
       ) : null}
 
-      {rows && rows.length === 0 ? <T variant="muted">Não encontrei comida na foto. Tente outra foto, com o prato bem visível.</T> : null}
+      {rows && rows.length === 0 ? (
+        <>
+          <T variant="muted">Não encontrei comida na foto. Tente outra foto, com o prato bem visível, ou adicione os alimentos manualmente.</T>
+          {addButton}
+        </>
+      ) : null}
 
       {rows && rows.length > 0 ? (
         <>
@@ -244,9 +280,9 @@ export default function Photo() {
               <Card key={r.key} style={{ gap: space.sm, opacity: r.included ? 1 : 0.5 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.sm }}>
                   <T variant="h2" style={{ flex: 1 }}>
-                    {r.name}
+                    {cand ? foodLabel(cand) : r.name}
                   </T>
-                  <T variant="label">{`${Math.round(r.confidence * 100)}% de certeza`}</T>
+                  <T variant="label">{r.manual ? 'Adicionado por você' : `${Math.round(r.confidence * 100)}% de certeza`}</T>
                 </View>
 
                 {r.included ? (
@@ -286,6 +322,8 @@ export default function Photo() {
               </Card>
             );
           })}
+
+          {addButton}
 
           <Card style={{ gap: space.md }}>
             <T variant="h2">Refeição</T>
