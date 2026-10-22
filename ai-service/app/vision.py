@@ -44,7 +44,6 @@ def recognize_food(client: Anthropic, image: bytes, mime_type: str) -> Recogniti
     response = client.messages.create(
         model=settings.anthropic_model,
         max_tokens=2048,
-        temperature=0.2,
         tools=[
             {
                 "name": TOOL_NAME,
