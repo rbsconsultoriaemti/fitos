@@ -217,10 +217,16 @@ export async function searchFoods(q: string): Promise<{ foods: Food[]; offline: 
 
 export async function getFood(id: string): Promise<Food> {
   const cached = (await read<Record<string, Food>>(FOODS_KEY))?.[id];
-  if (cached?.portions) return cached;
-  const food = await api<Food>(`/nutrition/foods/${id}`);
-  await cacheFoods([food]);
-  return food;
+  // Cópia salva antes do displayName existir: busca de novo (se estiver offline, usa a antiga).
+  if (cached?.portions && cached.displayName) return cached;
+  try {
+    const food = await api<Food>(`/nutrition/foods/${id}`);
+    await cacheFoods([food]);
+    return food;
+  } catch (err) {
+    if (cached?.portions && isOffline(err)) return cached;
+    throw err;
+  }
 }
 
 /** Alimento pelo código de barras: primeiro entre os já vistos neste aparelho (funciona offline), depois na API. */
