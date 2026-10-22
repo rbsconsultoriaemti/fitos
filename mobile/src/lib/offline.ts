@@ -192,7 +192,20 @@ async function cacheFoods(foods: Food[]) {
 
 export async function getRecentFoods(): Promise<Food[]> {
   const [ids, all] = await Promise.all([read<string[]>(RECENT_KEY), read<Record<string, Food>>(FOODS_KEY)]);
-  return (ids ?? []).map((id) => all?.[id]).filter((f): f is Food => !!f);
+  const recent = (ids ?? []).map((id) => all?.[id]).filter((f): f is Food => !!f);
+  // Alimentos salvos antes do displayName existir: atualiza na API (sem rede, ficam como estão).
+  const stale = recent.filter((f) => !f.displayName);
+  if (stale.length === 0) return recent;
+  const fresh = new Map<string, Food>();
+  await Promise.all(
+    stale.map((f) =>
+      api<Food>(`/nutrition/foods/${f.id}`)
+        .then((food) => void fresh.set(food.id, food))
+        .catch(() => undefined),
+    ),
+  );
+  if (fresh.size > 0) await cacheFoods([...fresh.values()]);
+  return recent.map((f) => fresh.get(f.id) ?? f);
 }
 
 export async function rememberFood(food: Food) {
