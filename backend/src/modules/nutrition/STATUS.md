@@ -1,6 +1,7 @@
 # STATUS — módulo nutrition
 
 - Estado: banco TACO, plano alimentar, log de comida e reconhecimento por foto (via ai-service) implementados. Testado com smoke test (Postgres local + ai-service real com o provedor de visão substituído por stub). Sem testes automatizados no backend.
+- Atualizado nesta etapa: foto → calorias com envio em base64 e `hints` (ingredientes), `displayName` nos alimentos + busca priorizando preparados, registro de água (`water_logs`, migration 016). Testes: `npm run test:recognize`, `test:food-names`, `test:water`, `test:water-offline`, `test:onboarding`.
 - Migrations: `...009_create-nutrition.sql`, `...010_nutrition-search-portions-mealtype.sql` (pg_trgm + unaccent, porções, tipo de refeição), `...014_nutrition-meals-templates-energy.sql` (5 refeições, source `openfoodfacts`, `meal_templates`, `profiles.kcal_target_override`)
 - Seeds: `npm run seed:taco` · `npm run seed:portions` · `npm run seed:openfoodfacts [-- --pages N]` · Job: `npm run job:daily-summaries [YYYY-MM-DD]`
 
@@ -74,7 +75,9 @@ Reconhecimento por foto
 ## Pendente
 - **Teste real com o Claude** (precisa de `ANTHROPIC_API_KEY`): só testei com stub; ver `ai-service/STATUS.md`
 - Armazenar a foto no S3 (`food_logs.photo_url` existe mas fica nulo; sem credenciais AWS ainda)
-- Rate limiting / cota por usuário em `/recognize` (cada chamada custa dinheiro)
+- Rate limiting / cota por usuário em `/recognize` (cada chamada custa dinheiro) — ainda NÃO existe
+- Colisão de nome de cardápio: só "Maria mole" repete (duplicada na própria TACO); revisar com nutricionista as regras de `formatFoodName` (ex.: "cru" mantido em carnes/arroz/feijão de propósito)
+- Água: sem tela de histórico/gráfico; meta fixa em 2 L/2,5 L (poderia usar peso e treino); desfazer registro já enviado exige internet
 - Agendar o job noturno (Railway cron) e cobrir mais de um dia / usuários sem log
 - Rascunho de dieta por IA (`source='ai'`, Claude API) → nutricionista revisa → aprova
 - Porções para o restante da TACO (feijão em concha, frutas em unidade, etc.): importar a POF/IBGE ou revisar com nutricionista

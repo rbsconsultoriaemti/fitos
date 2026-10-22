@@ -1,6 +1,6 @@
 # SESSÃO ATUAL
 
-Objetivo: app do aluno funcionando na academia (offline) com onboarding por IA e nutrição por foto.
+Objetivo: nutrição completa no app (foto, nomes de cardápio, água) com lembretes, pronta para teste em aparelho.
 
-Feito nesta sessão: envio de foto em base64 (corrigiu o erro "Envie a imagem…"), botão "Analisar foto", loading/erro, remoção do `temperature` no ai-service, campo opcional de ingredientes (`hints`) de ponta a ponta, backend na VPS com `ANTHROPIC_API_KEY`.
-Próximo: atualizar VPS (pull, build, migrate, restart, rebuild do ai-service), gerar APK novo e testar foto/onboarding em aparelho. Ver `PROXIMOS_PASSOS.md`.
+Feito: foto → calorias corrigida (base64, ingredientes, edição inline e "+ Adicionar alimento"), `displayName` e busca por estado, leitor de código de barras sem loop, widget de água com fila offline (migration 016), notificações locais de treino/refeição/água com tela de configurações.
+Próximo: atualizar a VPS (migrate até 016, restart, rebuild do ai-service), gerar APK novo e testar tudo em aparelho. Ver `PROXIMOS_PASSOS.md`.
