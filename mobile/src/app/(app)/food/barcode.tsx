@@ -23,7 +23,7 @@ export default function Barcode() {
   async function lookup(code: string) {
     if (locked.current) return;
     // Só dígitos, 8 a 14: qualquer outra leitura (QR code, texto) é descartada sem consultar a API.
-    if (!/^d{8,14}$/.test(code)) return;
+    if (!/^\d{8,14}$/.test(code)) return;
     locked.current = true;
     setBusy(true);
     setError(null);
