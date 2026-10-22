@@ -82,3 +82,10 @@ Reconhecimento por foto
 - Alimentos do leite e derivados ausentes na TACO (ver acima); busca por código de barras
 - Editar/remover alimentos `custom`
 - Testes automatizados
+
+## Nomes de cardápio (`displayName`)
+- `src/shared/food-name.ts`: `formatFoodName(name, category)` transforma o nome técnico da TACO em nome de cardápio ("Frango, peito, sem pele, grelhado" → "Frango grelhado", "Carne, bovina, patinho, sem gordura, grelhado" → "Patinho grelhado", "Ovo, de galinha, inteiro, cozido/10minutos" → "Ovo cozido", "Laranja, lima, suco" → "Suco de laranja lima"). `displayFoodName` só formata `source = 'taco'`; produtos do Open Food Facts e alimentos criados ficam como estão. O nome original continua no banco e é o que a busca usa.
+- A API devolve `displayName` ao lado de `name` em: busca/código de barras (`foodOut`), itens do diário e do plano alimentar (`food.displayName`), candidatos do reconhecimento por foto, itens das favoritas e plano alimentar gerado no onboarding. O app usa `foodLabel(x)` (`displayName || name`), então dados salvos offline por versões antigas continuam aparecendo com o nome original.
+- Decisão: o "cru" só some de **frutas, castanhas e verduras de salada** (alface, tomate, cenoura, cebola…). Em carnes, peixes, ovos, arroz, feijão, massas e tubérculos ele **fica** ("Frango cru", "Arroz cru"): sem isso, "Arroz" mostraria as kcal do arroz cru (~3× o cozido) e a pessoa registraria errado. Variedades diferentes ficam diferentes (peito x frango inteiro, "com pele", tipo 2) para não haver dois itens com o mesmo nome e macros distintos; dos 590 itens TACO só "Maria mole" repete (duplicado na própria TACO).
+- Busca (`GET /foods?q=`): busca 200 candidatos por relevância e reordena: preparados (cozido, grelhado, assado, frito, refogado) → sem estado ou cru comestível (frutas, saladas) → cru de carne/arroz/feijão etc.; dentro do grupo, nomes que começam pelo termo e os mais curtos primeiro.
+- Conferir: `npm run test:food-names` (17 exemplos fixos + colisões nos 590 alimentos; `-- --all` lista todos os nomes).

@@ -76,6 +76,8 @@ export interface Portion {
 export interface Food {
   id: string;
   name: string;
+  /** Nome de cardápio ('Frango grelhado'); ausente em dados salvos por versões antigas do app. */
+  displayName?: string;
   source: 'taco' | 'custom' | 'openfoodfacts';
   category: string | null;
   kcalPer100g: number;
@@ -95,7 +97,7 @@ export interface Macros {
 
 export interface LogEntry extends Macros {
   id: string;
-  food: { id: string; name: string };
+  food: { id: string; name: string; displayName?: string };
   mealType: MealType;
   quantityG: number;
   portion: { label: string; count: number } | null;
@@ -181,6 +183,7 @@ export interface Profile {
 export interface FoodCandidate {
   foodId: string;
   name: string;
+  displayName?: string;
   kcalPer100g: number;
   proteinPer100g: number;
   carbPer100g: number;
@@ -235,6 +238,7 @@ export interface MealTemplate {
   items: {
     foodId: string;
     name: string;
+    displayName?: string;
     quantityG: number;
     portion: { label: string; count: number } | null;
     kcal: number;

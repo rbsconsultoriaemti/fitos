@@ -7,7 +7,7 @@ import { Highlight } from '@/components/highlight';
 import { Button, Card, ErrorText, Input, T } from '@/components/ui';
 import { errorMessage } from '@/lib/dialog';
 import { setPickedFood } from '@/lib/food-pick';
-import { fmt0 } from '@/lib/format';
+import { fmt0, foodLabel } from '@/lib/format';
 import { getRecentFoods, rememberFood, searchFoods } from '@/lib/offline';
 import type { Food } from '@/lib/types';
 import { space, useColors } from '@/theme';
@@ -122,7 +122,7 @@ export default function FoodSearch() {
         renderItem={({ item }) => (
           <Pressable accessibilityRole="button" onPress={() => choose(item)}>
             <Card style={{ gap: 2, ...(searching ? {} : { borderColor: c.primary }) }}>
-              <Highlight text={item.name} query={searching ? q : ''} />
+              <Highlight text={foodLabel(item)} query={searching ? q : ''} />
               <T variant="muted">
                 {`${fmt0(item.kcalPer100g)} kcal / 100 g${item.source === 'openfoodfacts' ? ' · produto' : ''}`}
               </T>

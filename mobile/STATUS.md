@@ -9,6 +9,7 @@
 - `(tabs)/index` — Início: treino de hoje + resumo nutricional do dia
 - `(tabs)/workout` — séries, carga/reps, descanso com vibração, finalizar treino
 - `(tabs)/nutrition` — dia (navegação por data), card da meta de calorias (calculada pelo perfil + treinos do dia; "Ajustar" define meta manual), resumo kcal/macros × meta, 5 refeições (Café, Lanche manhã, Almoço, Lanche tarde, Jantar) com alimentos, "+", "★ Salvar como favorita" e "Favoritas" (registra tudo de uma vez), remover alimento, botão Foto → calorias
+- Nomes de alimentos aparecem como nome de cardápio (`displayName` da API, via `foodLabel`) em busca, diário, foto, favoritas e quantidade
 - `food/search` — busca com debounce (350 ms) em `GET /nutrition/foods?q=` com o termo destacado nos resultados; sem texto mostra em destaque os usados recentemente; ícone de código de barras; modo `pick` devolve o alimento à tela anterior
 - `food/barcode` — leitor de código de barras (expo-camera: EAN-13/8, UPC) ou digitação manual → `GET /nutrition/foods/barcode/:code`; produtos já vistos são achados offline
 - `food/quantity` — gramas ou porção caseira, prévia de kcal/macros em tempo real, escolha da refeição, salvar (`POST /nutrition/logs`)

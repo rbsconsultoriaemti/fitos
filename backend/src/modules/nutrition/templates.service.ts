@@ -1,5 +1,6 @@
 import { pool } from '../../database/pool';
 import { AppError } from '../../shared/errors';
+import { displayFoodName } from '../../shared/food-name';
 import { AccessTokenPayload } from '../auth/auth.service';
 import { ApplyTemplateInput, CreateTemplateInput } from './nutrition.schemas';
 import { createLogs, resolveQuantity } from './nutrition.service';
@@ -50,7 +51,7 @@ export async function listTemplates(auth: Auth) {
   const foodIds = [...new Set(rows.flatMap((t) => t.items.map((i) => i.foodId)))];
   const { rows: foods } = foodIds.length
     ? await pool.query(
-        `SELECT id, name, portions, kcal_per_100g, protein_per_100g, carb_per_100g, fat_per_100g
+        `SELECT id, name, source, category, portions, kcal_per_100g, protein_per_100g, carb_per_100g, fat_per_100g
          FROM foods WHERE id = ANY($1::uuid[])`,
         [foodIds],
       )
@@ -67,6 +68,7 @@ export async function listTemplates(auth: Auth) {
         {
           foodId: i.foodId,
           name: food.name as string,
+          displayName: displayFoodName(food.name, food.source, food.category),
           quantityG: q.quantityG,
           portion: q.portionLabel ? { label: q.portionLabel, count: Number(q.portionCount) } : null,
           kcal: round1(Number(food.kcal_per_100g) * f),

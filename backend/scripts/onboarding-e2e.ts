@@ -222,7 +222,7 @@ async function main() {
     check(plan.body.days.length === 4, 'quatro dias de treino', plan.body.days.length);
     check(Math.abs(t.kcal - n.kcal) <= n.kcal * 0.05, 'plano alimentar dentro de 5% da meta de kcal', { total: t.kcal, meta: n.kcal });
     const names = r.mealPlan.meals.flatMap((m: { items: { name: string }[] }) => m.items.map((i) => i.name)).join(' | ');
-    for (const fav of ['Arroz', 'Feijão', 'Frango, peito', 'Ovo, de galinha', 'Batata, doce']) check(names.includes(fav), `favorito presente no plano alimentar: ${fav}`);
+    for (const fav of ['Arroz cozido', 'Feijão carioca cozido', 'Frango grelhado', 'Ovo cozido', 'Batata doce cozida']) check(names.includes(fav), `favorito presente no plano alimentar: ${fav}`);
     const after = await call('/profile', {}, token);
     check(after.body.onboardingNeeded === false && !!after.body.onboarding.completedAt, 'onboarding marcado como concluído');
     const day = await call(`/nutrition/logs?date=${new Date().toISOString().slice(0, 10)}`, {}, token);

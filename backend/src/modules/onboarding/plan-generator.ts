@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { pool } from '../../database/pool';
 import { AppError } from '../../shared/errors';
+import { displayFoodName } from '../../shared/food-name';
 import { updatePlanSchema, type PlanContent } from '../workout/workout.schemas';
 import { callClaudeTool } from './claude';
 import type { FoodContext } from './food-context';
@@ -325,7 +326,7 @@ function build(
     meals.push({
       name: m.name.trim().slice(0, 120),
       timeSuggestion: time,
-      items: items.map(({ food, g }) => ({ foodId: food.id, name: food.food.name, quantityG: g, kcal: 0, proteinG: 0, carbG: 0, fatG: 0 })),
+      items: items.map(({ food, g }) => ({ foodId: food.id, name: displayFoodName(food.food.name, 'taco'), quantityG: g, kcal: 0, proteinG: 0, carbG: 0, fatG: 0 })),
     });
   });
 

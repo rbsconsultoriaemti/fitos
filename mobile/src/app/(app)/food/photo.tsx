@@ -9,7 +9,7 @@ import { Button, Card, Chip, Input, T } from '@/components/ui';
 import { api } from '@/lib/api';
 import { errorMessage, notify } from '@/lib/dialog';
 import { consumePickedFood } from '@/lib/food-pick';
-import { defaultMeal, fmt0, localDate, MEAL_LABELS, MEAL_ORDER, parseDecimal } from '@/lib/format';
+import { defaultMeal, fmt0, foodLabel, localDate, MEAL_LABELS, MEAL_ORDER, parseDecimal } from '@/lib/format';
 import { addFoodLogs, foodToCandidate, isOffline, type FoodLogDraft } from '@/lib/offline';
 import type { FoodCandidate, MealType, Macros, RecognitionResult } from '@/lib/types';
 import { radius, space, useColors } from '@/theme';
@@ -165,7 +165,7 @@ export default function Photo() {
         const grams = parseDecimal(r.grams)!;
         return {
           item: { foodId: r.selectedId!, mealType, quantityG: grams },
-          preview: { name: selected(r)!.name, mealType, grams, kcal: kcalOf(r) ?? 0 },
+          preview: { name: foodLabel(selected(r)!), mealType, grams, kcal: kcalOf(r) ?? 0 },
         };
       });
       const today = localDate();
@@ -257,7 +257,7 @@ export default function Photo() {
                         <T variant="label">Corresponde a (tabela TACO)</T>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
                           {r.candidates.map((x) => (
-                            <Chip key={x.foodId} label={x.name} selected={r.selectedId === x.foodId} onPress={() => patch(r.key, { selectedId: x.foodId })} />
+                            <Chip key={x.foodId} label={foodLabel(x)} selected={r.selectedId === x.foodId} onPress={() => patch(r.key, { selectedId: x.foodId })} />
                           ))}
                         </View>
                       </>

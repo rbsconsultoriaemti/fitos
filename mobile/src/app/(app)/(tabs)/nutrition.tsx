@@ -9,7 +9,7 @@ import { ApplyFavoriteModal, SaveFavoriteModal } from '@/components/favorites';
 import { Button, Card, ErrorText, T } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { confirm, errorMessage, notify } from '@/lib/dialog';
-import { addDays, dateLabel, fmt0, localDate, MEAL_LABELS, MEAL_ORDER } from '@/lib/format';
+import { addDays, dateLabel, fmt0, foodLabel, localDate, MEAL_LABELS, MEAL_ORDER } from '@/lib/format';
 import { addFoodLogs, getPendingFoodLogs, isOffline, loadDay, loadTemplates, syncPendingFoodLogs, type PendingFoodLog } from '@/lib/offline';
 import type { DayLog, LogEntry, MealTemplate, MealType } from '@/lib/types';
 import { space, useColors } from '@/theme';
@@ -59,7 +59,7 @@ export default function Nutrition() {
   };
 
   async function remove(entry: LogEntry) {
-    if (!(await confirm('Remover alimento', `Remover "${entry.food.name}" desta refeição?`, 'Remover'))) return;
+    if (!(await confirm('Remover alimento', `Remover "${foodLabel(entry.food)}" desta refeição?`, 'Remover'))) return;
     try {
       await api(`/nutrition/logs/${entry.id}`, { method: 'DELETE' });
       await load(date);
@@ -107,7 +107,7 @@ export default function Nutrition() {
           item: i.portion
             ? { foodId: i.foodId, mealType, portion: i.portion }
             : { foodId: i.foodId, mealType, quantityG: i.quantityG },
-          preview: { name: i.name, mealType, grams: i.quantityG, kcal: i.kcal },
+          preview: { name: foodLabel(i), mealType, grams: i.quantityG, kcal: i.kcal },
         })),
         date,
         today,
@@ -215,11 +215,11 @@ export default function Nutrition() {
             {meal?.entries.map((e) => (
               <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
                 <View style={{ flex: 1 }}>
-                  <T>{e.food.name}</T>
+                  <T>{foodLabel(e.food)}</T>
                   <T variant="muted">{quantityText(e)}</T>
                 </View>
                 <T variant="label">{`${fmt0(e.kcal)} kcal`}</T>
-                <Pressable accessibilityLabel={`Remover ${e.food.name}`} hitSlop={8} onPress={() => remove(e)}>
+                <Pressable accessibilityLabel={`Remover ${foodLabel(e.food)}`} hitSlop={8} onPress={() => remove(e)}>
                   <Ionicons name="trash-outline" size={20} color={c.muted} />
                 </Pressable>
               </View>

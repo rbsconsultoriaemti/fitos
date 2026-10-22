@@ -2,6 +2,7 @@ import { PoolClient } from 'pg';
 import { pool } from '../../database/pool';
 import { config } from '../../shared/config';
 import { AppError } from '../../shared/errors';
+import { displayFoodName, foodStateRank } from '../../shared/food-name';
 import { AccessTokenPayload } from '../auth/auth.service';
 import { computeEnergyTarget } from './energy.service';
 import { CreateLogInput, CreatePlanInput, mealInputTypes, mealTypes, PlanContent, UpdateLogInput } from './nutrition.schemas';
@@ -47,11 +48,30 @@ interface Portion {
 export function foodOut(r: any) {
   return {
     ...r,
+    displayName: displayFoodName(r.name, r.source, r.category),
     kcalPer100g: Number(r.kcalPer100g),
     proteinPer100g: Number(r.proteinPer100g),
     carbPer100g: Number(r.carbPer100g),
     fatPer100g: Number(r.fatPer100g),
   };
+}
+
+/**
+ * Preparado (cozido, grelhado, assado, frito) antes de alimento sem estado (frutas, saladas) e de cru que ninguém
+ * registra assim (carne, arroz). Dentro de cada grupo, nomes que começam pelo termo e os mais curtos vêm primeiro
+ * ("Frango grelhado" antes de "Coração de frango grelhado"); o resto segue a relevância da consulta (sort estável).
+ */
+function rankByState<T extends { name: string; source: string; category: string | null }>(rows: T[], q: string): T[] {
+  const first = q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).find(Boolean) ?? '';
+  const key = (r: T) => {
+    const shown = displayFoodName(r.name, r.source, r.category);
+    const starts = shown.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').startsWith(first) ? 0 : 1;
+    return [foodStateRank(r.name, r.source, r.category), starts, shown.length];
+  };
+  return [...rows].sort((a, b) => {
+    const [ka, kb] = [key(a), key(b)];
+    return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2];
+  });
 }
 
 /**
@@ -85,10 +105,10 @@ export async function listFoods(filter: { q?: string; category?: string }) {
               (f.name_search LIKE q.toks[1] || '%') DESC,
               word_similarity(q.s, f.name_search) DESC,
               length(f.name), f.name
-     LIMIT 50`,
+     LIMIT 200`,
     [filter.q, category],
   );
-  return rows.map(foodOut);
+  return rankByState(rows, filter.q).slice(0, 50).map(foodOut);
 }
 
 export async function getFood(id: string) {
@@ -218,7 +238,7 @@ async function buildPlan(plan: PlanRow) {
   const { rows } = await pool.query(
     `SELECT m.id AS meal_id, m.name AS meal_name, m."order", to_char(m.time_suggestion, 'HH24:MI') AS time_suggestion,
             mf.id AS mf_id, mf.quantity_g,
-            f.id AS food_id, f.name AS food_name, f.kcal_per_100g, f.protein_per_100g, f.carb_per_100g, f.fat_per_100g
+            f.id AS food_id, f.name AS food_name, f.source AS food_source, f.category AS food_category, f.kcal_per_100g, f.protein_per_100g, f.carb_per_100g, f.fat_per_100g
      FROM meals m
      LEFT JOIN meal_foods mf ON mf.meal_id = m.id
      LEFT JOIN foods f ON f.id = mf.food_id
@@ -253,7 +273,7 @@ async function buildPlan(plan: PlanRow) {
       totals.fatG += macros.fatG;
       meals.get(r.meal_id).foods.push({
         id: r.mf_id,
-        food: { id: r.food_id, name: r.food_name },
+        food: { id: r.food_id, name: r.food_name, displayName: displayFoodName(r.food_name, r.food_source, r.food_category) },
         quantityG: Number(r.quantity_g),
         ...macros,
       });
@@ -496,7 +516,7 @@ async function loadEntries(where: string, params: unknown[]) {
   const { rows } = await pool.query(
     `SELECT l.id, l.food_id, l.meal_id, l.meal_type, l.quantity_g, l.portion_label, l.portion_count,
             l.recognition_source, l.logged_at,
-            f.name, f.kcal_per_100g, f.protein_per_100g, f.carb_per_100g, f.fat_per_100g
+            f.name, f.source, f.category, f.kcal_per_100g, f.protein_per_100g, f.carb_per_100g, f.fat_per_100g
      FROM food_logs l JOIN foods f ON f.id = l.food_id
      WHERE ${where}
      ORDER BY l.logged_at, l.id`,
@@ -506,7 +526,7 @@ async function loadEntries(where: string, params: unknown[]) {
     const k = Number(r.quantity_g) / 100;
     return {
       id: r.id,
-      food: { id: r.food_id, name: r.name },
+      food: { id: r.food_id, name: r.name, displayName: displayFoodName(r.name, r.source, r.category) },
       mealType: r.meal_type as MealType,
       mealId: r.meal_id,
       quantityG: Number(r.quantity_g),

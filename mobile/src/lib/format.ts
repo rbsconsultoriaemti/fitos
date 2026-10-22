@@ -1,6 +1,9 @@
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Data local no formato YYYY-MM-DD (não usar toISOString: ele converte para UTC e troca o dia à noite). */
+/** Nome de cardápio do alimento (a API manda `displayName`); cai no nome original se faltar. */
+export const foodLabel = (f: { name: string; displayName?: string }) => f.displayName || f.name;
+
 export function localDate(d = new Date()): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }

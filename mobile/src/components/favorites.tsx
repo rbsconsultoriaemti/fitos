@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 
 import { Button, Card, ErrorText, Input, T } from '@/components/ui';
-import { fmt0 } from '@/lib/format';
+import { fmt0, foodLabel } from '@/lib/format';
 import type { MealTemplate } from '@/lib/types';
 import { radius, space, useColors } from '@/theme';
 
@@ -114,7 +114,7 @@ export function ApplyFavoriteModal({
                 </T>
                 <T variant="label">{`${fmt0(t.totals.kcal)} kcal`}</T>
               </View>
-              <T variant="muted">{t.items.map((i) => i.name.split(',')[0]).join(' · ')}</T>
+              <T variant="muted">{t.items.map((i) => foodLabel(i)).join(' · ')}</T>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <T variant="label">{busy === t.id ? 'Adicionando…' : 'Toque para adicionar tudo'}</T>
                 <Button title="Excluir" kind="ghost" disabled={busy !== null || offline} onPress={() => onDelete(t)} />

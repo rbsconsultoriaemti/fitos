@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 
 import { Button, Card, Chip, ErrorText, Input, T } from '@/components/ui';
 import { errorMessage, notify } from '@/lib/dialog';
-import { defaultMeal, fmt0, fmt1, localDate, MEAL_LABELS, MEAL_ORDER, parseDecimal } from '@/lib/format';
+import { defaultMeal, fmt0, fmt1, foodLabel, localDate, MEAL_LABELS, MEAL_ORDER, parseDecimal } from '@/lib/format';
 import { addFoodLogs, getFood } from '@/lib/offline';
 import type { Food, MealType } from '@/lib/types';
 import { space, useColors } from '@/theme';
@@ -70,7 +70,7 @@ export default function Quantity() {
               mode === 'portion' && portion && portionCount
                 ? { foodId: food.id, mealType, portion: { label: portion.label, count: portionCount } }
                 : { foodId: food.id, mealType, quantityG: totalGrams },
-            preview: { name: food.name, mealType, grams: totalGrams, kcal: preview.kcal },
+            preview: { name: foodLabel(food), mealType, grams: totalGrams, kcal: preview.kcal },
           },
         ],
         date || today,
@@ -88,7 +88,7 @@ export default function Quantity() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }} keyboardShouldPersistTaps="handled">
-        <T variant="title">{food.name}</T>
+        <T variant="title">{foodLabel(food)}</T>
         <ErrorText>{error}</ErrorText>
 
         <Card style={{ gap: space.md }}>

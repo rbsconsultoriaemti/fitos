@@ -249,6 +249,7 @@ export async function loadTemplates(): Promise<{ templates: MealTemplate[]; offl
 export const foodToCandidate = (f: Food): FoodCandidate => ({
   foodId: f.id,
   name: f.name,
+  displayName: f.displayName,
   kcalPer100g: f.kcalPer100g,
   proteinPer100g: f.proteinPer100g,
   carbPer100g: f.carbPer100g,

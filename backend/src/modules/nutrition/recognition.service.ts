@@ -1,6 +1,7 @@
 import { pool } from '../../database/pool';
 import { config } from '../../shared/config';
 import { AppError } from '../../shared/errors';
+import { displayFoodName } from '../../shared/food-name';
 
 interface RecognizedFood {
   name: string;
@@ -26,7 +27,7 @@ async function findCandidates(name: string) {
 
   const patterns = tokens.map((t) => `%${escapeLike(t)}%`);
   const { rows } = await pool.query(
-    `SELECT id, name, source, kcal_per_100g, protein_per_100g, carb_per_100g, fat_per_100g, score
+    `SELECT id, name, source, category, kcal_per_100g, protein_per_100g, carb_per_100g, fat_per_100g, score
      FROM (
        SELECT f.*, (SELECT count(*) FROM unnest($1::text[]) p WHERE f.name ILIKE p) AS score FROM foods f
      ) s
@@ -38,6 +39,7 @@ async function findCandidates(name: string) {
   return rows.map((r) => ({
     foodId: r.id,
     name: r.name,
+    displayName: displayFoodName(r.name, r.source, r.category),
     source: r.source,
     kcalPer100g: Number(r.kcal_per_100g),
     proteinPer100g: Number(r.protein_per_100g),
