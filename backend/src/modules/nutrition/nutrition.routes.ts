@@ -110,6 +110,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const recognizeJsonSchema = z.object({
   imageBase64: z.string().min(1),
   mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']).default('image/jpeg'),
+  hints: z.string().trim().max(200).optional(),
 });
 
 nutritionRouter.post(
@@ -119,11 +120,13 @@ nutritionRouter.post(
     const contentType = req.headers['content-type']?.split(';')[0];
     let image: Buffer;
     let mime: string;
+    let hints: string | undefined;
     if (contentType === 'application/json') {
       const body = recognizeJsonSchema.parse(req.body);
       // Aceita também o prefixo "data:image/jpeg;base64,".
       image = Buffer.from(body.imageBase64.replace(/^data:[^,]*,/, ''), 'base64');
       mime = body.mimeType;
+      hints = body.hints || undefined;
     } else if (contentType && IMAGE_TYPES.includes(contentType) && Buffer.isBuffer(req.body)) {
       image = req.body;
       mime = contentType;
@@ -132,8 +135,8 @@ nutritionRouter.post(
     }
     if (image.length === 0) throw new AppError(400, 'empty_image', 'A imagem chegou vazia. Tire a foto novamente.');
     if (image.length > MAX_IMAGE_BYTES) throw new AppError(413, 'image_too_large', 'Imagem muito grande (máx. 8 MB)');
-    console.log(`[recognize] ${mime} ${image.length} bytes`);
-    res.json(await recognizeMeal(image, mime));
+    console.log(`[recognize] ${mime} ${image.length} bytes${hints ? `, com ingredientes (${hints.length} caracteres)` : ''}`);
+    res.json(await recognizeMeal(image, mime, hints));
   }),
 );
 

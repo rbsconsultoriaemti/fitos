@@ -1,7 +1,7 @@
 import hmac
 import logging
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from .config import settings
@@ -29,7 +29,7 @@ def health():
 
 
 @app.post("/vision/food-recognition", response_model=Recognition, dependencies=[Depends(require_service_token)])
-async def food_recognition(image: UploadFile = File(...), client=Depends(get_client)):
+async def food_recognition(image: UploadFile = File(...), hints: str = Form(default=""), client=Depends(get_client)):
     if image.content_type not in ALLOWED_MIME:
         raise HTTPException(status_code=415, detail="unsupported_image_type")
     data = await image.read(settings.max_image_bytes + 1)
@@ -41,7 +41,7 @@ async def food_recognition(image: UploadFile = File(...), client=Depends(get_cli
         raise HTTPException(status_code=503, detail="anthropic_not_configured")
     try:
         # A chamada ao SDK é síncrona: roda em thread para não travar o event loop.
-        return await run_in_threadpool(recognize_food, client, data, image.content_type)
+        return await run_in_threadpool(recognize_food, client, data, image.content_type, hints)
     except Exception:
         log.exception("Falha ao consultar o Claude")
         raise HTTPException(status_code=502, detail="vision_provider_error")

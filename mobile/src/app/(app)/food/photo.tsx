@@ -14,7 +14,9 @@ import { addFoodLogs, foodToCandidate, isOffline, type FoodLogDraft } from '@/li
 import type { FoodCandidate, MealType, Macros, RecognitionResult } from '@/lib/types';
 import { radius, space, useColors } from '@/theme';
 
-const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+const HINTS_MAX = 200;
+const HINT_SUGGESTIONS = ['frango', 'carne bovina', 'ovo', 'arroz', 'feijão', 'batata', 'pão', 'macarrão'];
+const ALLOWED =['image/jpeg', 'image/png', 'image/webp'];
 
 interface Row {
   key: string;
@@ -37,10 +39,20 @@ export default function Photo() {
   const [pending, setPending] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [slow, setSlow] = useState(false);
+  const [hints, setHints] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pickFor = useRef<string | null>(null);
   const started = useRef(false);
+
+  const hintList = (text: string) => text.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+  // Chip: acrescenta o ingrediente ao campo (ou tira, se já estiver lá), respeitando o limite de caracteres.
+  const addHint = (word: string) => {
+    const list = hintList(hints);
+    const next = list.includes(word) ? list.filter((x) => x !== word) : [...list, word];
+    const text = next.join(', ');
+    if (text.length <= HINTS_MAX) setHints(text);
+  };
 
   const patch = (key: string, changes: Partial<Row>) =>
     setRows((rs) => rs?.map((r) => (r.key === key ? { ...r, ...changes } : r)) ?? null);
@@ -67,7 +79,7 @@ export default function Photo() {
       if (__DEV__) console.log(`[photo] enviando ${mimeType}, ${Math.round(base64.length / 1024)} KB em base64`);
       const res = await api<RecognitionResult>('/nutrition/recognize', {
         method: 'POST',
-        body: { imageBase64: base64, mimeType },
+        body: { imageBase64: base64, mimeType, ...(hints.trim() ? { hints: hints.trim() } : {}) },
         timeoutMs: 60_000,
       });
       setDisclaimer(res.disclaimer);
@@ -182,6 +194,26 @@ export default function Photo() {
         <Button title={photoUri ? 'Tirar outra' : 'Tirar foto'} kind="secondary" style={{ flex: 1 }} onPress={() => capture('camera')} disabled={analyzing} />
         <Button title="Galeria" kind="secondary" style={{ flex: 1 }} onPress={() => capture('library')} disabled={analyzing} />
       </View>
+
+      {pending && !rows && !analyzing ? (
+        <View style={{ gap: space.sm }}>
+          <Input
+            label="Ingredientes principais (opcional)"
+            value={hints}
+            onChangeText={(v) => setHints(v.slice(0, HINTS_MAX))}
+            placeholder="frango, arroz, feijão..."
+            maxLength={HINTS_MAX}
+            autoCapitalize="none"
+          />
+          <T variant="muted">Quer ajudar a IA? Liste os ingredientes principais (ex: frango, arroz, feijão)</T>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+            {HINT_SUGGESTIONS.map((s) => (
+              <Chip key={s} label={s} selected={hintList(hints).includes(s)} onPress={() => addHint(s)} />
+            ))}
+          </View>
+          <T variant="muted">{`${hints.length}/${HINTS_MAX}`}</T>
+        </View>
+      ) : null}
 
       {pending && !rows && !analyzing && !error ? <Button title="Analisar foto" onPress={analyze} /> : null}
 

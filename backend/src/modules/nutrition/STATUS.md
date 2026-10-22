@@ -56,7 +56,7 @@ Log de comida (estilo Samsung Health)
   - Nutricionista só vê pacientes com vínculo ativo
 
 Reconhecimento por foto
-- `POST /recognize` — JSON `{imageBase64, mimeType}` (formato do app; blob via fetch chegava vazio no React Native) ou bytes crus (`Content-Type: image/jpeg|png|webp`), até 8 MB. Teste: `npm run test:recognize`. Backend → ai-service (`X-Service-Token`) → Claude Vision. Devolve, para cada alimento reconhecido, `recognized {name, estimatedGrams, confidence, estimated {kcal, proteinG, carbG, fatG}}` (macros da porção estimados pelo Claude, fallback quando a TACO não casa) + até 5 `candidates` da base. **Não registra nada**: o aluno confirma/corrige e chama `POST /logs` com `recognitionSource: 'photo_ai'`.
+- `POST /recognize` — JSON `{imageBase64, mimeType, hints?}` (hints = ingredientes opcionais, até 200 caracteres, repassados ao ai-service como campo `hints` e adicionados ao prompt; formato do app; blob via fetch chegava vazio no React Native) ou bytes crus (`Content-Type: image/jpeg|png|webp`), até 8 MB. Teste: `npm run test:recognize`. Backend → ai-service (`X-Service-Token`) → Claude Vision. Devolve, para cada alimento reconhecido, `recognized {name, estimatedGrams, confidence, estimated {kcal, proteinG, carbG, fatG}}` (macros da porção estimados pelo Claude, fallback quando a TACO não casa) + até 5 `candidates` da base. **Não registra nada**: o aluno confirma/corrige e chama `POST /logs` com `recognitionSource: 'photo_ai'`.
 - Config: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`. Sem token → 503 `ai_unavailable`.
 
 ## Porções caseiras (`foods.portions`)

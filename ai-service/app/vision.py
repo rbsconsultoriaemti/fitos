@@ -17,6 +17,12 @@ Regras:
 - Se a foto não contiver comida, devolva a lista vazia.
 - Não dê conselhos de saúde nem opine sobre a refeição; apenas identifique e estime."""
 
+HINTS_PROMPT = (
+    "O usuário informou que o prato contém: {hints}. "
+    "Use essa informação para identificar os alimentos com mais precisão, "
+    "mas também identifique outros alimentos visíveis na foto."
+)
+
 TOOL_NAME = "registrar_refeicao"
 
 
@@ -39,7 +45,10 @@ def make_client() -> Anthropic:
     return Anthropic(api_key=settings.anthropic_api_key, timeout=25.0, max_retries=1)
 
 
-def recognize_food(client: Anthropic, image: bytes, mime_type: str) -> Recognition:
+def recognize_food(client: Anthropic, image: bytes, mime_type: str, hints: str = "") -> Recognition:
+    # Texto livre do usuário: uma linha só e curto, para não virar instrução extra no prompt.
+    hints = " ".join(hints.split())[:200]
+    prompt = PROMPT + (f"\n\n{HINTS_PROMPT.format(hints=hints)}" if hints else "")
     # Tool use forçado: o modelo só pode responder chamando a ferramenta, então a saída é sempre JSON no schema.
     response = client.messages.create(
         model=settings.anthropic_model,
@@ -64,7 +73,7 @@ def recognize_food(client: Anthropic, image: bytes, mime_type: str) -> Recogniti
                             "data": base64.standard_b64encode(image).decode("ascii"),
                         },
                     },
-                    {"type": "text", "text": PROMPT},
+                    {"type": "text", "text": prompt},
                 ],
             }
         ],

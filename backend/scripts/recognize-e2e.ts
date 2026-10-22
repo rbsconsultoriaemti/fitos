@@ -21,7 +21,7 @@ const png = Buffer.concat([
 ]);
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
 
-let received: { mime: string; hash: string; token: string } | null = null;
+let received: { mime: string; hash: string; token: string; hints: string | null } | null = null;
 const ai = http.createServer((req, res) => {
   const chunks: Buffer[] = [];
   req.on('data', (c) => chunks.push(c));
@@ -29,7 +29,7 @@ const ai = http.createServer((req, res) => {
     // Reaproveita o parser de multipart do runtime (Response.formData) em vez de escrever um.
     const form = await new Response(Buffer.concat(chunks), { headers: { 'content-type': req.headers['content-type'] ?? '' } }).formData();
     const file = form.get('image') as File;
-    received = { mime: file.type, hash: sha(Buffer.from(await file.arrayBuffer())), token: String(req.headers['x-service-token']) };
+    received = { mime: file.type, hash: sha(Buffer.from(await file.arrayBuffer())), token: String(req.headers['x-service-token']), hints: form.has('hints') ? String(form.get('hints')) : null };
     res.setHeader('content-type', 'application/json');
     res.end(JSON.stringify({ foods: [{ name: 'Arroz, cozido', quantity_g: 150, kcal: 190, protein_g: 4, carb_g: 41, fat_g: 0.4, confidence: 0.9 }] }));
   });
@@ -92,6 +92,16 @@ async function main() {
     // 2) com prefixo data URL
     r = await post('/nutrition/recognize', { type: 'application/json', body: JSON.stringify({ imageBase64: `data:image/png;base64,${png.toString('base64')}`, mimeType: 'image/png' }) }, token);
     check(r.status === 200, 'JSON base64 com prefixo data:', r);
+
+    // 2b) ingredientes opcionais (hints)
+    received = null;
+    r = await post('/nutrition/recognize', { type: 'application/json', body: JSON.stringify({ imageBase64: png.toString('base64'), mimeType: 'image/png', hints: 'frango, arroz, feijão' }) }, token);
+    check(r.status === 200 && received?.hints === 'frango, arroz, feijão', 'hints chegam ao ai-service como campo do multipart', received?.hints);
+    received = null;
+    await post('/nutrition/recognize', { type: 'application/json', body: JSON.stringify({ imageBase64: png.toString('base64'), mimeType: 'image/png', hints: '   ' }) }, token);
+    check(received?.hints === null, 'hints vazio não é enviado ao ai-service', received?.hints);
+    r = await post('/nutrition/recognize', { type: 'application/json', body: JSON.stringify({ imageBase64: 'AAAA', hints: 'x'.repeat(201) }) }, token);
+    check(r.status === 400, 'hints acima de 200 caracteres => 400', r);
 
     // 3) bytes crus (APK antigo)
     received = null;

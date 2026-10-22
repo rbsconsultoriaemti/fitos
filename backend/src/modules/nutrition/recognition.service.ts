@@ -50,13 +50,14 @@ async function findCandidates(name: string) {
  * Envia a foto ao ai-service (Claude Vision) e casa cada alimento reconhecido com o banco.
  * Nada é registrado aqui: o aluno confirma/corrige e então chama POST /nutrition/logs.
  */
-export async function recognizeMeal(image: Buffer, mimeType: string) {
+export async function recognizeMeal(image: Buffer, mimeType: string, hints?: string) {
   if (!config.aiService.token) {
     throw new AppError(503, 'ai_unavailable', 'Reconhecimento por foto não configurado');
   }
 
   const form = new FormData();
   form.append('image', new Blob([new Uint8Array(image)], { type: mimeType }), 'meal');
+  if (hints) form.append('hints', hints);
 
   let res: Response;
   try {
