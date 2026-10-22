@@ -10,6 +10,12 @@
 - `(tabs)/workout` — séries, carga/reps, descanso com vibração, finalizar treino
 - `(tabs)/nutrition` — dia (navegação por data), card da meta de calorias (calculada pelo perfil + treinos do dia; "Ajustar" define meta manual), resumo kcal/macros × meta, 5 refeições (Café, Lanche manhã, Almoço, Lanche tarde, Jantar) com alimentos, "+", "★ Salvar como favorita" e "Favoritas" (registra tudo de uma vez), remover alimento, botão Foto → calorias
 - Nomes de alimentos aparecem como nome de cardápio (`displayName` da API, via `foodLabel`) em busca, diário, foto, favoritas e quantidade
+- `settings/notifications` — lembretes locais (expo-notifications, agendados no aparelho; sem servidor). Acesso pelo sino na Início e por "Notificações e lembretes" no Perfil. Liga/desliga treino, refeições e hidratação; horário do treino com seletor − / + (hora e 5 min). Botão de teste (5 s). Lógica em `src/lib/notifications.ts`:
+  - Treino: um lembrete semanal por dia COM treino no plano ativo (dia de descanso não notifica), "Você tem X séries…" (X = soma das séries do dia); padrão 07:00. O plano vem da API ou do cache
+  - Refeições: 07:30, 10:00, 12:30, 15:30 e 19:00 (fixos, não seguem o `time_suggestion` do plano alimentar)
+  - Água: 08, 10, 12, 14, 16, 18 e 20h; **o app não registra consumo de água**, então o filtro "só se beber menos de 2 L" usa a resposta do perfil (onboarding `water`): quem declarou `gt2` não recebe
+  - Permissão pedida na 1ª abertura (uma vez); tudo é reagendado ao abrir o app, ao voltar para ele e ao mudar as preferências; logout cancela os lembretes
+  - Módulo nativo novo: precisa de APK novo (`eas build`); sem o módulo vira no-op
 - `food/search` — busca com debounce (350 ms) em `GET /nutrition/foods?q=` com o termo destacado nos resultados; sem texto mostra em destaque os usados recentemente; ícone de código de barras; modo `pick` devolve o alimento à tela anterior
 - `food/barcode` — leitor de código de barras (expo-camera: EAN-13/8, UPC; só leituras de 8–14 dígitos). Se a consulta falha (produto não encontrado, sem rede) a câmera PARA e mostra "Ler outro código" / "Buscar pelo nome" (antes relia o mesmo código em loop). Sem permissão definitiva, botão para abrir as configurações; erro ao abrir a câmera cai na digitação manual. Também aceita digitação manual → `GET /nutrition/foods/barcode/:code`; produtos já vistos são achados offline
 - `food/quantity` — gramas ou porção caseira, prévia de kcal/macros em tempo real, escolha da refeição, salvar (`POST /nutrition/logs`)

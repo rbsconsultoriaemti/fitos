@@ -2,6 +2,7 @@ import { createContext, use, useCallback, useEffect, useMemo, useState, type Pro
 
 import { api, getRefreshToken, loadTokens, saveTokens, setSessionLostHandler } from '@/lib/api';
 import { clearOfflineData, getCachedUser, isOffline, setCachedUser } from '@/lib/offline';
+import { cancelAllReminders } from '@/lib/notifications';
 import { resetOnboardingPostponed } from '@/lib/onboarding';
 import type { AuthResponse, User } from '@/lib/types';
 
@@ -68,6 +69,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         if (token) await api('/auth/logout', { method: 'POST', body: { refreshToken: token }, auth: false }).catch(() => {});
         await saveTokens(null);
         await clearOfflineData();
+        await cancelAllReminders();
         resetOnboardingPostponed();
         setUser(null);
       },

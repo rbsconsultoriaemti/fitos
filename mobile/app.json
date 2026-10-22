@@ -31,6 +31,12 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-notifications",
+        {
+          "color": "#16A34A"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "O FitOS acessa suas fotos para reconhecer os alimentos do prato.",

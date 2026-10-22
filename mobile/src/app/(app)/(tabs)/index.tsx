@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
 import { DaySummary } from '@/components/day-summary';
 import { Button, Card, ErrorText, T } from '@/components/ui';
@@ -9,7 +10,7 @@ import { loadActivePlan, loadDay } from '@/lib/offline';
 import { isoWeekday, localDate } from '@/lib/format';
 import type { DayLog, WorkoutDay, WorkoutPlan } from '@/lib/types';
 import { useSession } from '@/session';
-import { space } from '@/theme';
+import { space, useColors } from '@/theme';
 
 interface TodayWorkout {
   plan: WorkoutPlan;
@@ -18,6 +19,7 @@ interface TodayWorkout {
 
 export default function Home() {
   const { user } = useSession();
+  const c = useColors();
   const [day, setDay] = useState<DayLog | null>(null);
   const [workout, setWorkout] = useState<TodayWorkout | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
@@ -52,9 +54,20 @@ export default function Home() {
       contentContainerStyle={{ padding: space.lg, gap: space.lg, maxWidth: 640, width: '100%', alignSelf: 'center' }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
     >
-      <View style={{ gap: 2 }}>
-        <T variant="title">Olá, {user?.name.split(' ')[0]}</T>
-        <T variant="muted">Resumo de hoje</T>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md }}>
+        <View style={{ gap: 2, flex: 1 }}>
+          <T variant="title">Olá, {user?.name.split(' ')[0]}</T>
+          <T variant="muted">Resumo de hoje</T>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Notificações"
+          hitSlop={8}
+          onPress={() => router.push('/settings/notifications' as never)}
+          style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Ionicons name="notifications-outline" size={22} color={c.text} />
+        </Pressable>
       </View>
 
       <ErrorText>{error}</ErrorText>

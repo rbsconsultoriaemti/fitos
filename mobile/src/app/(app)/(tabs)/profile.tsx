@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 
@@ -245,6 +245,7 @@ export default function ProfileScreen() {
 
         <T variant="muted">Estes dados são sensíveis e ficam visíveis só para você.</T>
         <Button title="Salvar" onPress={save} loading={saving} />
+        <Button title="Notificações e lembretes" kind="secondary" onPress={() => router.push('/settings/notifications' as never)} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
