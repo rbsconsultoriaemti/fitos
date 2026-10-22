@@ -78,7 +78,7 @@ export default function NotificationSettings() {
   const refresh = useCallback(async () => {
     setPrefs(await loadPrefs());
     setPermission(await getPermissionState());
-    setScheduled(await rescheduleAll());
+    setScheduled(await rescheduleAll({ refresh: true }));
   }, []);
 
   useFocusEffect(
@@ -95,7 +95,7 @@ export default function NotificationSettings() {
 
   async function allow() {
     setPermission(await requestPermission());
-    setScheduled(await rescheduleAll());
+    setScheduled(await rescheduleAll({ refresh: true }));
   }
 
   async function test() {
@@ -153,7 +153,7 @@ export default function NotificationSettings() {
       <Card style={{ gap: space.md }}>
         <Row
           title="Hidratação"
-          hint={`A cada 2 horas, das ${pad(WATER_HOURS[0])}:00 às ${pad(WATER_HOURS[WATER_HOURS.length - 1])}:00. Não é enviada se você informou no perfil que bebe mais de 2 L por dia.`}
+          hint={`A cada 2 horas, das ${pad(WATER_HOURS[0])}:00 às ${pad(WATER_HOURS[WATER_HOURS.length - 1])}:00. Para de avisar quando você passa de 80% da meta do dia; às 16h, com menos de 50%, o aviso é urgente.`}
           value={prefs.water.enabled}
           onValueChange={(enabled) => update({ ...prefs, water: { enabled } })}
         />

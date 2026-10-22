@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
 import { DaySummary } from '@/components/day-summary';
+import { WaterWidget } from '@/components/water-widget';
 import { Button, Card, ErrorText, T } from '@/components/ui';
 import { errorMessage } from '@/lib/dialog';
 import { loadActivePlan, loadDay } from '@/lib/offline';
@@ -73,6 +74,8 @@ export default function Home() {
       <ErrorText>{error}</ErrorText>
 
       {day ? <DaySummary day={day} /> : error ? null : <T variant="muted">Carregando…</T>}
+
+      <WaterWidget />
 
       {workout !== undefined ? (
         <Card>

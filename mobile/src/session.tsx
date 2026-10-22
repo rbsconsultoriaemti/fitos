@@ -3,6 +3,7 @@ import { createContext, use, useCallback, useEffect, useMemo, useState, type Pro
 import { api, getRefreshToken, loadTokens, saveTokens, setSessionLostHandler } from '@/lib/api';
 import { clearOfflineData, getCachedUser, isOffline, setCachedUser } from '@/lib/offline';
 import { cancelAllReminders } from '@/lib/notifications';
+import { clearWaterData } from '@/lib/water';
 import { resetOnboardingPostponed } from '@/lib/onboarding';
 import type { AuthResponse, User } from '@/lib/types';
 
@@ -70,6 +71,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         await saveTokens(null);
         await clearOfflineData();
         await cancelAllReminders();
+        await clearWaterData();
         resetOnboardingPostponed();
         setUser(null);
       },

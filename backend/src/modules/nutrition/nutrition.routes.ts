@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from '../auth/auth.middleware';
 import {
   applyTemplateSchema,
   barcodeParam,
+  createWaterSchema,
   createFoodSchema,
   createLogSchema,
   createPlanSchema,
@@ -18,11 +19,13 @@ import {
   setPortionsSchema,
   updateLogSchema,
   updatePlanSchema,
+  waterTodaySchema,
 } from './nutrition.schemas';
 import { computeEnergyTarget, setEnergyOverride } from './energy.service';
 import * as service from './nutrition.service';
 import * as templates from './templates.service';
 import { recognizeMeal } from './recognition.service';
+import * as water from './water.service';
 
 const idParam = z.object({ id: z.uuid() });
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -137,6 +140,28 @@ nutritionRouter.post(
     if (image.length > MAX_IMAGE_BYTES) throw new AppError(413, 'image_too_large', 'Imagem muito grande (máx. 8 MB)');
     console.log(`[recognize] ${mime} ${image.length} bytes${hints ? `, com ingredientes (${hints.length} caracteres)` : ''}`);
     res.json(await recognizeMeal(image, mime, hints));
+  }),
+);
+
+// Água
+nutritionRouter.post(
+  '/water',
+  wrap(async (req, res) => {
+    const { duplicate, entry } = await water.addWater(req.auth!, createWaterSchema.parse(req.body));
+    res.status(duplicate ? 200 : 201).json(entry);
+  }),
+);
+nutritionRouter.get(
+  '/water/today',
+  wrap(async (req, res) => {
+    res.json(await water.waterToday(req.auth!, waterTodaySchema.parse(req.query).date));
+  }),
+);
+nutritionRouter.delete(
+  '/water/:id',
+  wrap(async (req, res) => {
+    await water.deleteWater(req.auth!, idParam.parse(req.params).id);
+    res.status(204).end();
   }),
 );
 

@@ -9,7 +9,10 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["../../mobile/src/*"],
-      "@react-native-async-storage/async-storage": ["./stubs/async-storage.ts"]
+      "@react-native-async-storage/async-storage": ["./stubs/async-storage.ts"],
+      "react-native": ["./stubs/react-native.ts"],
+      "expo-secure-store": ["./stubs/secure-store.ts"],
+      "expo-image": ["./stubs/expo-image.ts"]
     }
   }
 }

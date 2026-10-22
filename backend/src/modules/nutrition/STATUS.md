@@ -89,3 +89,11 @@ Reconhecimento por foto
 - Decisão: o "cru" só some de **frutas, castanhas e verduras de salada** (alface, tomate, cenoura, cebola…). Em carnes, peixes, ovos, arroz, feijão, massas e tubérculos ele **fica** ("Frango cru", "Arroz cru"): sem isso, "Arroz" mostraria as kcal do arroz cru (~3× o cozido) e a pessoa registraria errado. Variedades diferentes ficam diferentes (peito x frango inteiro, "com pele", tipo 2) para não haver dois itens com o mesmo nome e macros distintos; dos 590 itens TACO só "Maria mole" repete (duplicado na própria TACO).
 - Busca (`GET /foods?q=`): busca 200 candidatos por relevância e reordena: preparados (cozido, grelhado, assado, frito, refogado) → sem estado ou cru comestível (frutas, saladas) → cru de carne/arroz/feijão etc.; dentro do grupo, nomes que começam pelo termo e os mais curtos primeiro.
 - Conferir: `npm run test:food-names` (17 exemplos fixos + colisões nos 590 alimentos; `-- --all` lista todos os nomes).
+
+## Água (`water_logs`, migration 016)
+- Tabela `water_logs (id, user_id, amount_ml 1..2000, logged_at, client_id, created_at)`; índice único `(user_id, client_id)` torna idempotente o reenvio da fila offline do app.
+- `POST /water` `{ amountMl | amount_ml, loggedAt?, clientId? }` → 201 com o registro (200 se o `clientId` já existia). `loggedAt` aceito: até 5 min no futuro e até 3 dias no passado (hora real do gole feito offline).
+- `GET /water/today?date=YYYY-MM-DD` (padrão hoje, fuso `APP_TIMEZONE`) → `{ totalMl, goalMl, percent, entries[], byHour[{hour,totalMl}] }`.
+- `DELETE /water/:id` → 204; só o dono (404 para os outros).
+- Meta (`goalMl`): resposta de água do onboarding — "mais de 2 L" (`gt2`) = 2500 ml; qualquer outra, ou sem resposta, = 2000 ml.
+- Testes: `npm run test:water` (API, 18 verificações) e `npm run test:water-offline` (a lógica do app `mobile/src/lib/water.ts` contra o backend real: fila offline, desfazer, virada do dia, reenvio sem duplicar; mais as regras dos lembretes).

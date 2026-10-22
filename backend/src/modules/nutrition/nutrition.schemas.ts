@@ -132,3 +132,20 @@ export type CreateLogInput = z.infer<typeof createLogSchema>;
 export type UpdateLogInput = z.infer<typeof updateLogSchema>;
 export type CreateTemplateInput = z.infer<typeof createTemplateSchema>;
 export type ApplyTemplateInput = z.infer<typeof applyTemplateSchema>;
+
+// Água: aceita `amountMl` (padrão da API) ou `amount_ml`. `loggedAt` permite à fila offline do app mandar a hora real do gole.
+export const createWaterSchema = z
+  .object({
+    amountMl: z.number().int().min(1).max(2000).optional(),
+    amount_ml: z.number().int().min(1).max(2000).optional(),
+    loggedAt: z.iso
+      .datetime({ offset: true })
+      .refine((v) => Date.parse(v) <= Date.now() + 5 * 60_000 && Date.parse(v) >= Date.now() - 3 * 86_400_000, 'loggedAt fora do intervalo aceito')
+      .optional(),
+    clientId: z.string().trim().min(8).max(64).optional(),
+  })
+  .refine((v) => v.amountMl !== undefined || v.amount_ml !== undefined, { message: 'Informe amountMl', path: ['amountMl'] })
+  .transform((v) => ({ amountMl: (v.amountMl ?? v.amount_ml)!, loggedAt: v.loggedAt, clientId: v.clientId }));
+export type CreateWaterInput = z.infer<typeof createWaterSchema>;
+
+export const waterTodaySchema = z.object({ date: z.iso.date().optional() });

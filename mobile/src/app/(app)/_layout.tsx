@@ -25,7 +25,7 @@ export default function AppLayout() {
   // Lembretes: pede permissão na primeira abertura e reagenda tudo a cada abertura do app (e ao voltar para ele).
   useEffect(() => {
     if (!user) return;
-    void askPermissionOnFirstOpen().then(rescheduleAll);
+    void askPermissionOnFirstOpen().then(() => rescheduleAll({ refresh: true }));
     return rescheduleOnForeground();
   }, [user]);
 
