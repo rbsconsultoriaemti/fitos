@@ -104,16 +104,36 @@ nutritionRouter.post(
   }),
 );
 
-// Reconhecimento por foto: corpo = bytes da imagem (Content-Type image/jpeg|png|webp). Não registra nada.
+// Reconhecimento por foto. Aceita JSON { imageBase64, mimeType } (usado pelo app) ou os bytes da imagem
+// no corpo (Content-Type image/jpeg|png|webp). Não registra nada.
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const recognizeJsonSchema = z.object({
+  imageBase64: z.string().min(1),
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']).default('image/jpeg'),
+});
+
 nutritionRouter.post(
   '/recognize',
   express.raw({ type: IMAGE_TYPES, limit: '8mb' }),
   wrap(async (req, res) => {
-    const mime = req.headers['content-type']?.split(';')[0];
-    if (!mime || !IMAGE_TYPES.includes(mime) || !Buffer.isBuffer(req.body) || req.body.length === 0) {
-      throw new AppError(415, 'unsupported_image_type', 'Envie a imagem (jpeg, png ou webp) no corpo da requisição');
+    const contentType = req.headers['content-type']?.split(';')[0];
+    let image: Buffer;
+    let mime: string;
+    if (contentType === 'application/json') {
+      const body = recognizeJsonSchema.parse(req.body);
+      // Aceita também o prefixo "data:image/jpeg;base64,".
+      image = Buffer.from(body.imageBase64.replace(/^data:[^,]*,/, ''), 'base64');
+      mime = body.mimeType;
+    } else if (contentType && IMAGE_TYPES.includes(contentType) && Buffer.isBuffer(req.body)) {
+      image = req.body;
+      mime = contentType;
+    } else {
+      throw new AppError(415, 'unsupported_image_type', 'Envie a imagem (jpeg, png ou webp) em JSON base64 ou como corpo binário');
     }
-    res.json(await recognizeMeal(req.body, mime));
+    if (image.length === 0) throw new AppError(400, 'empty_image', 'A imagem chegou vazia. Tire a foto novamente.');
+    if (image.length > MAX_IMAGE_BYTES) throw new AppError(413, 'image_too_large', 'Imagem muito grande (máx. 8 MB)');
+    console.log(`[recognize] ${mime} ${image.length} bytes`);
+    res.json(await recognizeMeal(image, mime));
   }),
 );
 

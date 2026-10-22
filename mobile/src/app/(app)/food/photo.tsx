@@ -1,10 +1,11 @@
 import { Image } from 'expo-image';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 
-import { Button, Card, Chip, ErrorText, Input, T } from '@/components/ui';
+import { Button, Card, Chip, Input, T } from '@/components/ui';
 import { api } from '@/lib/api';
 import { errorMessage, notify } from '@/lib/dialog';
 import { consumePickedFood } from '@/lib/food-pick';
@@ -33,7 +34,9 @@ export default function Photo() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [disclaimer, setDisclaimer] = useState('');
   const [mealType, setMealType] = useState<MealType>(defaultMeal());
+  const [pending, setPending] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pickFor = useRef<string | null>(null);
@@ -42,18 +45,30 @@ export default function Photo() {
   const patch = (key: string, changes: Partial<Row>) =>
     setRows((rs) => rs?.map((r) => (r.key === key ? { ...r, ...changes } : r)) ?? null);
 
-  async function analyze(asset: ImagePicker.ImagePickerAsset) {
+  // Tirar/escolher a foto só a exibe; a análise começa em "Analisar foto".
+  function pick(asset: ImagePicker.ImagePickerAsset) {
     setPhotoUri(asset.uri);
+    setPending(asset);
     setRows(null);
     setError(null);
+  }
+
+  async function analyze() {
+    if (!pending) return;
+    setRows(null);
+    setError(null);
+    setSlow(false);
     setAnalyzing(true);
     try {
-      const blob = await (await fetch(asset.uri)).blob();
-      const contentType = asset.mimeType && ALLOWED.includes(asset.mimeType) ? asset.mimeType : 'image/jpeg';
+      // Base64 em JSON: o envio de Blob via fetch no React Native chega vazio/sem Content-Type em alguns aparelhos.
+      const base64 = pending.base64;
+      if (!base64) throw new Error('Não consegui ler a foto. Tire outra.');
+      const mimeType = pending.mimeType && ALLOWED.includes(pending.mimeType) ? pending.mimeType : 'image/jpeg';
+      if (__DEV__) console.log(`[photo] enviando ${mimeType}, ${Math.round(base64.length / 1024)} KB em base64`);
       const res = await api<RecognitionResult>('/nutrition/recognize', {
         method: 'POST',
-        raw: { body: blob, contentType },
-        timeoutMs: 45_000,
+        body: { imageBase64: base64, mimeType },
+        timeoutMs: 60_000,
       });
       setDisclaimer(res.disclaimer);
       setRows(
@@ -84,11 +99,18 @@ export default function Photo() {
         return;
       }
     }
-    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, exif: false };
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, exif: false, base64: true };
     const result =
       source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
-    if (!result.canceled && result.assets[0]) await analyze(result.assets[0]);
+    if (!result.canceled && result.assets[0]) pick(result.assets[0]);
   }
+
+  // Depois de 10 s de análise, avisa que ainda está trabalhando.
+  useEffect(() => {
+    if (!analyzing) return;
+    const t = setTimeout(() => setSlow(true), 10_000);
+    return () => clearTimeout(t);
+  }, [analyzing]);
 
   // Abre a câmera ao entrar na tela (uma vez).
   useEffect(() => {
@@ -149,18 +171,34 @@ export default function Photo() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }} keyboardShouldPersistTaps="handled">
-      <ErrorText>{error}</ErrorText>
+      <T variant="muted">Fotografe seu prato inteiro de cima, com boa iluminação.</T>
+      <T variant="muted">Quanto mais visível cada alimento, mais precisa será a análise.</T>
 
       {photoUri ? (
         <Image source={{ uri: photoUri }} contentFit="cover" style={{ width: '100%', height: 220, borderRadius: radius.lg, backgroundColor: c.card }} />
       ) : null}
 
       <View style={{ flexDirection: 'row', gap: space.md }}>
-        <Button title={photoUri ? 'Tirar outra' : 'Tirar foto'} style={{ flex: 1 }} onPress={() => capture('camera')} disabled={analyzing} />
+        <Button title={photoUri ? 'Tirar outra' : 'Tirar foto'} kind="secondary" style={{ flex: 1 }} onPress={() => capture('camera')} disabled={analyzing} />
         <Button title="Galeria" kind="secondary" style={{ flex: 1 }} onPress={() => capture('library')} disabled={analyzing} />
       </View>
 
-      {analyzing ? <T variant="muted">Analisando o prato… pode levar alguns segundos.</T> : null}
+      {pending && !rows && !analyzing && !error ? <Button title="Analisar foto" onPress={analyze} /> : null}
+
+      {analyzing ? (
+        <View style={{ alignItems: 'center', gap: space.sm, paddingVertical: space.md }}>
+          <ActivityIndicator color={c.primary} size="large" />
+          <T style={{ fontWeight: '700' }}>Identificando alimentos...</T>
+          {slow ? <T variant="muted">Isso pode levar alguns segundos...</T> : null}
+        </View>
+      ) : null}
+
+      {error ? (
+        <View style={{ gap: space.md }}>
+          <Text style={{ color: c.danger, fontSize: 15 }}>{error}</Text>
+          {pending ? <Button title="Tentar novamente" onPress={analyze} /> : null}
+        </View>
+      ) : null}
 
       {rows && rows.length === 0 ? <T variant="muted">Não encontrei comida na foto. Tente outra foto, com o prato bem visível.</T> : null}
 

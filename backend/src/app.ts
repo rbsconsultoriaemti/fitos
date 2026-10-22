@@ -25,6 +25,8 @@ export function createApp() {
   const app = express();
   app.use(helmet());
   app.use(cors());
+  // Foto em base64 (JSON) precisa de limite maior que o padrão de 100 kb; vem antes do parser global.
+  app.use('/nutrition/recognize', express.json({ limit: '12mb' }));
   app.use(express.json());
 
   app.get('/health', async (_req, res) => {
