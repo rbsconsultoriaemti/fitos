@@ -1,6 +1,7 @@
 # STATUS — ai-service
 
-- Estado: serviço FastAPI com reconhecimento de alimentos por foto (Claude Vision, Anthropic SDK). 7 testes pytest passam (SDK mockado). **Nunca chamou a API de verdade** (sem chave).
+- Estado: serviço FastAPI com reconhecimento de alimentos por foto (Claude Vision, Anthropic SDK). 10 testes pytest passam (SDK mockado). Roda em container na VPS; a chave `ANTHROPIC_API_KEY` já está configurada no backend da VPS, mas **a chamada real à Claude Vision ainda não foi confirmada** neste repositório.
+- Mudanças recentes: removido o parâmetro `temperature` da chamada `messages.create()` (a API recusava); novo campo opcional `hints` (ingredientes informados pelo usuário).
 
 ## Rodar
 ```
@@ -14,7 +15,7 @@ O `.env` não é carregado automaticamente: exporte as variáveis (ou rode via R
 
 ## Endpoints
 - `GET /health`
-- `POST /vision/food-recognition` — multipart `image` (jpeg/png/webp, ≤ `MAX_IMAGE_BYTES`, 8 MB), header `X-Service-Token`. Devolve `{ foods: [{ name, quantity_g, kcal, protein_g, carb_g, fat_g, confidence }] }` com nomes em português do Brasil no estilo TACO; os macros são da porção estimada, não de 100 g. Erros: 401 token, 413/415 imagem, 503 sem chave, 502 falha da API.
+- `POST /vision/food-recognition` — multipart `image` (jpeg/png/webp, ≤ `MAX_IMAGE_BYTES`, 8 MB) e `hints` opcional (texto livre, ex.: "frango, arroz"; reduzido a uma linha e cortado em 200 caracteres), header `X-Service-Token`. Com `hints`, o prompt ganha: "O usuário informou que o prato contém: … Use essa informação para identificar os alimentos com mais precisão, mas também identifique outros alimentos visíveis na foto."; sem `hints`, o prompt é o de sempre. Devolve `{ foods: [{ name, quantity_g, kcal, protein_g, carb_g, fat_g, confidence }] }` com nomes em português do Brasil no estilo TACO; os macros são da porção estimada, não de 100 g. Erros: 401 token, 413/415 imagem, 503 sem chave, 502 falha da API.
 
 ## Decisões
 - Modelo `claude-opus-4-5` (configurável por `ANTHROPIC_MODEL`). A foto vai em base64 num bloco `image` da Messages API.

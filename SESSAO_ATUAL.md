@@ -1,6 +1,6 @@
 # SESSÃO ATUAL
 
-Objetivo: app mobile do aluno funcionando na academia, inclusive offline (subsolo).
+Objetivo: app do aluno funcionando na academia (offline) com onboarding por IA e nutrição por foto.
 
-Feito: app verificado e corrigido (dependências faltando), modo offline implementado, commit `9ce7103`.
-Próximo: deploy da API (Railway) ou túnel; testar em celular físico; tela de Nutrição no mobile.
+Feito nesta sessão: envio de foto em base64 (corrigiu o erro "Envie a imagem…"), botão "Analisar foto", loading/erro, remoção do `temperature` no ai-service, campo opcional de ingredientes (`hints`) de ponta a ponta, backend na VPS com `ANTHROPIC_API_KEY`.
+Próximo: atualizar VPS (pull, build, migrate, restart, rebuild do ai-service), gerar APK novo e testar foto/onboarding em aparelho. Ver `PROXIMOS_PASSOS.md`.
