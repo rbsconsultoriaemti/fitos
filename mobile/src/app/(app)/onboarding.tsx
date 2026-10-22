@@ -28,6 +28,7 @@ import {
   MINUTES,
   MODALITIES,
   OPTIONAL_STEPS,
+  parseFavorites,
   postponeOnboarding,
   saveDraft,
   stepPayload,
@@ -109,8 +110,15 @@ export default function Onboarding() {
   /** Guarda o progresso: sempre no aparelho, e no servidor quando houver rede (falha de rede não trava o fluxo). */
   async function persist(fromStep: number, toStep: number) {
     await saveDraft({ step: toStep, form });
+    const body = stepPayload(fromStep, form);
     try {
-      await api('/profile', { method: 'PUT', body: stepPayload(fromStep, form) });
+      const saved = await api<Profile>('/profile', { method: 'PUT', body });
+      if (__DEV__) {
+        // Confere se o servidor guardou tudo o que a etapa enviou.
+        const sent = Object.keys((body.onboarding as { answers: object }).answers);
+        const lost = sent.filter((k) => !(k in saved.onboarding.answers));
+        console.log(`[onboarding] etapa ${fromStep} enviada`, JSON.stringify(body), lost.length ? `NÃO SALVOU: ${lost.join(', ')}` : 'salvo OK');
+      }
     } catch (err) {
       if (!isOffline(err)) throw err;
     }
@@ -155,8 +163,11 @@ export default function Onboarding() {
     }
     setGenerating(true);
     try {
-      await api('/profile', { method: 'PUT', body: fullPayload(form) });
-      const res = await api<PlanResult>('/onboarding/complete', { method: 'POST', timeoutMs: 120_000 });
+      // Tudo vai junto no POST (o servidor grava no perfil e só então lê): nada depende de etapas anteriores terem chegado.
+      const body = fullPayload(form);
+      if (__DEV__) console.log('[onboarding] POST /onboarding/complete payload:', JSON.stringify(body, null, 2));
+      const res = await api<PlanResult>('/onboarding/complete', { method: 'POST', body, timeoutMs: 120_000 });
+      if (__DEV__) console.log('[onboarding] resposta:', JSON.stringify({ ...res, mealPlan: '(omitido)' }));
       await saveDraft(null);
       markPlanStale();
       router.replace('/(tabs)/workout' as never);
@@ -398,6 +409,14 @@ function StepFood({ form, set }: StepProps) {
           maxLength={200}
         />
       ) : null}
+      <Input
+        label="Quais alimentos você mais gosta? (opcional)"
+        value={form.favoriteFoods}
+        onChangeText={(v) => set('favoriteFoods', v)}
+        placeholder="Ex.: arroz, feijão, frango grelhado, ovo cozido"
+        multiline
+        maxLength={300}
+      />
       <Question title="Quantas refeições por dia?">
         {MEALS.map((m) => (
           <Chip key={m} label={m === 6 ? '6 ou mais' : String(m)} selected={form.mealsPerDay === m} onPress={() => set('mealsPerDay', m)} />
@@ -478,6 +497,7 @@ function StepSummary({ form, onEdit }: { form: OnboardingForm; onEdit: (step: nu
         ['Restrições', form.dietRestrictions.includes('intolerance') && form.intoleranceText.trim() ? `${diets} (${form.intoleranceText.trim()})` : diets],
         ['Refeições por dia', form.mealsPerDay ? (form.mealsPerDay === 6 ? '6 ou mais' : String(form.mealsPerDay)) : 'Não informado'],
         ['Água', label(WATER, form.water) ?? 'Não informado'],
+        ['Alimentos favoritos', parseFavorites(form.favoriteFoods).join(', ') || 'Não informado'],
       ],
     },
     {
@@ -513,7 +533,7 @@ function StepSummary({ form, onEdit }: { form: OnboardingForm; onEdit: (step: nu
         <T variant="h2">O que a IA vai criar</T>
         <T variant="muted">
           • Plano de treino semanal conforme seus dias, tempo, local e modalidades{'\n'}• Meta de calorias calculada pelo seu IMC e objetivo{'\n'}• Sugestão de
-          proteína, carboidrato e gordura
+          proteína, carboidrato e gordura{'\n'}• Plano alimentar de um dia, com seus alimentos favoritos
         </T>
         <T variant="muted">São sugestões automáticas e não substituem a orientação de um profissional de saúde.</T>
       </Card>

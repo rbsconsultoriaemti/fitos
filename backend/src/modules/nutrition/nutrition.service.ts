@@ -168,7 +168,7 @@ interface PlanRow {
   created_at: Date;
 }
 
-async function insertMeals(db: Db, planId: string, meals: PlanContent['meals']) {
+export async function insertMeals(db: Db, planId: string, meals: PlanContent['meals']) {
   const foodIds = [...new Set(meals.flatMap((m) => m.foods.map((f) => f.foodId)))];
   const { rows } = await db.query('SELECT id FROM foods WHERE id = ANY($1::uuid[])', [foodIds]);
   if (rows.length !== foodIds.length) throw new AppError(400, 'unknown_food', 'Um ou mais alimentos não existem');

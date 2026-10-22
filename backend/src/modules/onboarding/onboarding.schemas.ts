@@ -29,16 +29,27 @@ export const onboardingAnswersSchema = z.object({
   water: z.enum(['lt1', '1to2', 'gt2']),
   injuries: z.string().trim().max(500),
   followUp: z.array(z.enum(['none', 'personal', 'nutritionist', 'doctor', 'psychologist'])).max(5),
+  // Alimentos de que a pessoa gosta (texto livre); a conclusão os casa com a TACO.
+  favoriteFoods: z.array(z.string().trim().min(1).max(60)).max(15),
 });
 
-// Na conclusão, as etapas opcionais (alimentação e saúde) podem ter sido puladas: valem os padrões abaixo.
-export const completeAnswersSchema = onboardingAnswersSchema.extend({
-  dietRestrictions: onboardingAnswersSchema.shape.dietRestrictions.default([]),
-  intoleranceText: onboardingAnswersSchema.shape.intoleranceText.default(''),
-  mealsPerDay: onboardingAnswersSchema.shape.mealsPerDay.default(4),
-  water: onboardingAnswersSchema.shape.water.default('1to2'),
-  injuries: onboardingAnswersSchema.shape.injuries.default(''),
-  followUp: onboardingAnswersSchema.shape.followUp.default([]),
+// Na conclusão, o que não foi respondido (etapas puladas, app antigo) recebe estes padrões, sinalizados no log e na resposta.
+// Dados biométricos (nascimento, sexo, altura, peso) NÃO têm padrão: inventá-los geraria uma meta calórica errada.
+const shape = onboardingAnswersSchema.shape;
+export const completeAnswersSchema = z.object({
+  goalKey: shape.goalKey.default('maintain'),
+  raceType: shape.raceType.default(null),
+  daysPerWeek: shape.daysPerWeek.default(3),
+  sessionMinutes: shape.sessionMinutes.default(60),
+  location: shape.location.default('gym'),
+  modalities: shape.modalities.default(['strength']),
+  dietRestrictions: shape.dietRestrictions.default([]),
+  intoleranceText: shape.intoleranceText.default(''),
+  mealsPerDay: shape.mealsPerDay.default(4),
+  water: shape.water.default('1to2'),
+  injuries: shape.injuries.default(''),
+  followUp: shape.followUp.default([]),
+  favoriteFoods: shape.favoriteFoods.default([]),
 });
 
 export type OnboardingAnswers = z.infer<typeof completeAnswersSchema>;

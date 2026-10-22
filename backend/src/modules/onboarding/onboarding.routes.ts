@@ -1,15 +1,18 @@
 import { Router } from 'express';
 import { wrap } from '../../shared/http';
 import { requireAuth } from '../auth/auth.middleware';
+import { updateProfileSchema } from '../profile/profile.schemas';
 import * as service from './onboarding.service';
 
 export const onboardingRouter = Router();
 onboardingRouter.use(requireAuth);
 
-// Gera plano de treino + metas de nutrição a partir das respostas já salvas via PUT /profile.
+// Gera plano de treino + plano alimentar + metas. O corpo é opcional: se vier (mesmo formato do PUT /profile,
+// com `onboarding.answers`), é gravado antes; sem corpo, vale o que as etapas já salvaram.
 onboardingRouter.post(
   '/complete',
   wrap(async (req, res) => {
-    res.status(201).json(await service.completeOnboarding(req.auth!.sub));
+    const body = req.body && Object.keys(req.body).length > 0 ? updateProfileSchema.parse(req.body) : undefined;
+    res.status(201).json(await service.completeOnboarding(req.auth!.sub, body));
   }),
 );

@@ -101,6 +101,7 @@ export interface OnboardingForm {
   intoleranceText: string;
   mealsPerDay: number | null;
   water: Water | null;
+  favoriteFoods: string; // separados por vírgula
   injuries: string;
   followUp: FollowUp[];
 }
@@ -122,6 +123,7 @@ export const emptyForm = (): OnboardingForm => ({
   intoleranceText: '',
   mealsPerDay: null,
   water: null,
+  favoriteFoods: '',
   injuries: '',
   followUp: [],
 });
@@ -173,6 +175,7 @@ export function formFromProfile(p: Profile): OnboardingForm {
     intoleranceText: a.intoleranceText ?? '',
     mealsPerDay: a.mealsPerDay ?? null,
     water: a.water ?? null,
+    favoriteFoods: Array.isArray(a.favoriteFoods) ? (a.favoriteFoods as unknown as string[]).join(', ') : '',
     injuries: a.injuries ?? '',
     followUp: a.followUp ?? [],
   };
@@ -230,6 +233,9 @@ const DIET_TEXT: Record<Exclude<DietRestriction, 'none' | 'intolerance'>, string
   lactose_free: 'Sem lactose',
 };
 
+/** "arroz, feijão; frango" -> ['arroz', 'feijão', 'frango'] (até 15, sem repetir). */
+export const parseFavorites = (text: string) => [...new Set(text.split(/[,;\n]+/).map((t) => t.trim().slice(0, 60)).filter(Boolean))].slice(0, 15);
+
 export const goalText = (f: OnboardingForm) =>
   f.goal ? `${GOAL_TEXT[f.goal]}${f.goal === 'race' && f.raceType ? (f.raceType === 'running' ? ' (corrida)' : ' (ciclismo)') : ''}` : null;
 
@@ -268,6 +274,7 @@ export function stepPayload(step: number, f: OnboardingForm): Record<string, unk
       };
       if (f.mealsPerDay) answers.mealsPerDay = f.mealsPerDay;
       if (f.water) answers.water = f.water;
+      answers.favoriteFoods = parseFavorites(f.favoriteFoods);
       return { restrictions, onboarding: { step: resume, answers } };
     }
     case 6:

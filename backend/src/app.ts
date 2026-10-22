@@ -58,7 +58,7 @@ export function createApp() {
       return;
     }
     if (err instanceof AppError) {
-      res.status(err.status).json({ error: err.code, message: err.message });
+      res.status(err.status).json({ error: err.code, message: err.message, ...(err.details !== undefined ? { details: err.details } : {}) });
       return;
     }
     console.error(err);
