@@ -10,7 +10,7 @@ import { Button, Card, ErrorText, T } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { confirm, errorMessage, notify } from '@/lib/dialog';
 import { addDays, dateLabel, fmt0, foodLabel, localDate, MEAL_LABELS, MEAL_ORDER } from '@/lib/format';
-import { addFoodLogs, getPendingFoodLogs, isOffline, loadDay, loadTemplates, syncPendingFoodLogs, type PendingFoodLog } from '@/lib/offline';
+import { addFoodLogs, getPendingFoodLogs, isOffline, loadDay, loadTemplates, syncPendingFoodLogs, syncPendingLogs, type PendingFoodLog } from '@/lib/offline';
 import type { DayLog, LogEntry, MealTemplate, MealType } from '@/lib/types';
 import { space, useColors } from '@/theme';
 
@@ -48,7 +48,10 @@ export default function Nutrition() {
 
   useFocusEffect(
     useCallback(() => {
-      load(date);
+      // Treino finalizado sem internet fica na fila; envia antes de buscar a meta para o gasto do treino entrar nela.
+      syncPendingLogs()
+        .catch(() => 0)
+        .then(() => load(date));
     }, [load, date]),
   );
 

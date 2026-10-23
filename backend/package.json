@@ -21,6 +21,7 @@
     "test:food-names": "tsx scripts/food-name-check.ts",
     "test:water-offline": "tsx --tsconfig scripts/tsconfig.e2e.json scripts/water-offline-e2e.ts",
     "test:water": "tsx scripts/water-e2e.ts",
+    "test:energy": "tsx scripts/energy-e2e.ts",
     "test:trainer": "tsx scripts/trainer-e2e.ts",
     "test:recognize": "tsx scripts/recognize-e2e.ts",
     "test:onboarding": "tsx --tsconfig scripts/tsconfig.e2e.json scripts/onboarding-e2e.ts"

@@ -226,7 +226,7 @@ async function main() {
     const after = await call('/profile', {}, token);
     check(after.body.onboardingNeeded === false && !!after.body.onboarding.completedAt, 'onboarding marcado como concluído');
     const day = await call(`/nutrition/logs?date=${new Date().toISOString().slice(0, 10)}`, {}, token);
-    check(day.body.targets?.kcal === n.kcal && day.body.targets?.kcalSource === 'plan', 'meta aparece na aba Nutrição (fonte: plano)', day.body.targets);
+    check(day.body.targets?.kcalSource === 'dynamic' && day.body.targets?.kcal === day.body.energy?.targetKcal && day.body.targets?.proteinG === n.proteinG, 'aba Nutrição: kcal vem do cálculo do dia (base + treino); macros, do plano da IA', day.body.targets);
   } finally {
     await pool.query('DELETE FROM users WHERE email = $1', [email]).catch(() => undefined);
     await pool.end();

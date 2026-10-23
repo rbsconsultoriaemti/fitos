@@ -1,11 +1,12 @@
 import { pool } from '../../database/pool';
 import { config } from '../../shared/config';
 
-// Meta diária de calorias = TMB (Mifflin-St Jeor) × 1,2 (dia sem treino) + gasto estimado dos treinos do dia.
+// Meta diária de calorias = TMB (Mifflin-St Jeor) × 1,2 (dia sem treino) + gasto estimado dos treinos registrados no dia
+// (musculação: séries feitas × 2,5 min × MET 6 × peso).
 // É uma estimativa para orientar, não prescrição: a meta manual do usuário prevalece (ver getDayLog).
 
 const BASE_ACTIVITY = 1.2;
-const STRENGTH_MET = 5;
+const STRENGTH_MET = 6;
 const MINUTES_PER_SET = 2.5; // série + descanso; o log de musculação não guarda a duração do treino
 const MAX_EXERCISE_KCAL = 3000;
 
@@ -16,6 +17,11 @@ export interface EnergyTarget {
   overrideKcal: number | null;
   /** Campos do perfil que faltam para calcular (weight, height, birthDate, sex). */
   missing: string[];
+  /** Partes da meta calculada do dia (TMB × 1,2 + treino); null quando faltam dados. `targetKcal` = `baseKcal` + `workoutKcal`. */
+  baseKcal: number | null;
+  workoutKcal: number | null;
+  workoutDone: boolean;
+  targetKcal: number | null;
   /** Cálculo detalhado; null quando faltam dados. */
   breakdown: {
     bmr: number;
@@ -121,7 +127,7 @@ export async function computeEnergyTarget(userId: string, date: string): Promise
   ].filter(Boolean) as string[];
 
   if (missing.length > 0) {
-    return { kcal: overrideKcal, source: overrideKcal === null ? null : 'override', overrideKcal, missing, breakdown: null };
+    return { kcal: overrideKcal, source: overrideKcal === null ? null : 'override', overrideKcal, missing, baseKcal: null, workoutKcal: null, workoutDone: false, targetKcal: null, breakdown: null };
   }
 
   const weightKg = Number(p.weight_kg);
@@ -135,6 +141,10 @@ export async function computeEnergyTarget(userId: string, date: string): Promise
     source: overrideKcal === null ? 'dynamic' : 'override',
     overrideKcal,
     missing,
+    baseKcal: Math.round(baseKcal),
+    workoutKcal: workout.kcal,
+    workoutDone: workout.sessions > 0,
+    targetKcal: dynamicKcal,
     breakdown: {
       bmr: Math.round(bmr),
       baseKcal: Math.round(baseKcal),

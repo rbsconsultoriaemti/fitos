@@ -76,12 +76,18 @@ export function EnergyCard({ day, onChanged }: { day: DayLog; onChanged: () => v
       )}
 
       {b ? (
-        <T variant="muted">
-          {`Estimativa pelo seu perfil: metabolismo basal ${fmt0(b.bmr)} × 1,2 = ${fmt0(b.baseKcal)}` +
-            (b.exerciseKcal > 0
-              ? ` + treino ${fmt0(b.exerciseKcal)} (${b.trainingMinutes} min) → ${fmt0(b.dynamicKcal)} kcal · fator ${fmtFactor(b.activityFactor)}`
-              : ` → ${fmt0(b.dynamicKcal)} kcal · dia sem treino`)}
-        </T>
+        <View style={{ gap: 2 }}>
+          <T variant="body" style={{ fontWeight: '600' }}>
+            {b.exerciseKcal > 0
+              ? `Meta base: ${fmt0(b.baseKcal)} kcal + Treino: +${fmt0(b.exerciseKcal)} kcal = ${fmt0(b.dynamicKcal)} kcal`
+              : `Meta base: ${fmt0(b.baseKcal)} kcal · dia sem treino registrado`}
+          </T>
+          <T variant="muted">
+            {`Metabolismo basal ${fmt0(b.bmr)} × 1,2` +
+              (b.exerciseKcal > 0 ? ` · ${b.trainingMinutes} min de treino (fator ${fmtFactor(b.activityFactor)})` : ' · a meta sobe quando você registrar um treino')}
+          </T>
+          {source && source !== 'dynamic' ? <T variant="muted">{`A meta exibida acima é ${SOURCE_LABEL[source]}; o cálculo do perfil seria ${fmt0(b.dynamicKcal)} kcal.`}</T> : null}
+        </View>
       ) : energy && energy.missing.length > 0 ? (
         <>
           <T variant="muted">{`Para calcular sua meta, preencha no Perfil: ${energy.missing.map((m) => MISSING_LABEL[m] ?? m).join(', ')}.`}</T>

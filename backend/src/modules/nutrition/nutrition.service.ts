@@ -661,11 +661,16 @@ export async function getDayLog(auth: Auth, filter: { date?: string; userId?: st
     [userId],
   );
   const plan = plans[0];
-  // Meta de calorias: a manual do usuário > a do plano alimentar > a calculada pelo perfil e treinos do dia.
+  // Meta de calorias: a manual do usuário > a de um plano alimentar de nutricionista ou do próprio usuário > a calculada
+  // pelo perfil e treinos do dia. A meta fixa do plano gerado pela IA no onboarding NÃO tem prioridade: ela não muda
+  // nos dias de treino, então só vale quando faltam dados do perfil para calcular.
   const energy = await computeEnergyTarget(userId, date);
   const planKcal = plan ? num(plan.target_kcal) : null;
-  const kcalTarget = energy.overrideKcal ?? planKcal ?? energy.breakdown?.dynamicKcal ?? null;
-  const kcalSource = energy.overrideKcal !== null ? 'override' : planKcal !== null ? 'plan' : kcalTarget !== null ? 'dynamic' : null;
+  const fixedPlanKcal = plan && plan.source !== 'ai' ? planKcal : null;
+  const dynamicKcal = energy.breakdown?.dynamicKcal ?? null;
+  const kcalTarget = energy.overrideKcal ?? fixedPlanKcal ?? dynamicKcal ?? planKcal ?? null;
+  const kcalSource =
+    energy.overrideKcal !== null ? 'override' : fixedPlanKcal !== null ? 'plan' : dynamicKcal !== null ? 'dynamic' : planKcal !== null ? 'plan' : null;
   const targets =
     plan || kcalTarget !== null
       ? {

@@ -219,6 +219,10 @@ export interface EnergyTarget {
   source: 'override' | 'dynamic' | null;
   overrideKcal: number | null;
   missing: string[]; // campos do perfil que faltam: weight, height, birthDate, sex
+  baseKcal: number | null; // TMB × 1,2
+  workoutKcal: number | null; // gasto estimado dos treinos registrados no dia
+  workoutDone: boolean;
+  targetKcal: number | null; // baseKcal + workoutKcal
   breakdown: {
     bmr: number;
     baseKcal: number;
