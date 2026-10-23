@@ -612,3 +612,12 @@ export async function listLogs(auth: Auth, filter: { studentId?: string; planId?
   );
   return rows;
 }
+
+/** Plano ativo mais recente do aluno, completo (dias, exercícios). O chamador já verificou o vínculo. */
+export async function activePlanFor(studentId: string) {
+  const { rows } = await pool.query<PlanRow>(
+    `SELECT * FROM workout_plans WHERE owner_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
+    [studentId],
+  );
+  return rows[0] ? buildPlan(rows[0]) : null;
+}

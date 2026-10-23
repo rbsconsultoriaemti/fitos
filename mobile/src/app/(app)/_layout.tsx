@@ -24,7 +24,7 @@ export default function AppLayout() {
 
   // Lembretes: pede permissão na primeira abertura e reagenda tudo a cada abertura do app (e ao voltar para ele).
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.role !== 'student') return;
     void askPermissionOnFirstOpen().then(() => rescheduleAll({ refresh: true }));
     return rescheduleOnForeground();
   }, [user]);
@@ -39,6 +39,8 @@ export default function AppLayout() {
       <Stack.Screen name="food/quantity" options={{ title: 'Quantidade' }} />
       <Stack.Screen name="food/photo" options={{ title: 'Foto → calorias' }} />
       <Stack.Screen name="settings/notifications" options={{ title: 'Notificações' }} />
+      <Stack.Screen name="trainer/student/[id]" options={{ title: 'Aluno' }} />
+      <Stack.Screen name="trainer/prescribe/[studentId]" options={{ title: 'Prescrever treino' }} />
       <Stack.Screen name="log/[id]" options={{ title: 'Treino realizado' }} />
     </Stack>
   );

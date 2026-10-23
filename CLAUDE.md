@@ -200,6 +200,9 @@ fitos/
 Eu produzo o diff exato para você colar nos arquivos STATUS.md e PROXIMOS_PASSOS.md.
 
 ### Estado atual do projeto
-- Fase: PRÉ-DESENVOLVIMENTO
-- Próximo passo: criar estrutura de pastas + primeiras migrations do banco
-- Módulo ativo: nenhum ainda
+- Fase: DESENVOLVIMENTO ATIVO
+- Último commit: 6225bbc
+- Módulos prontos: Auth, Musculação, Nutrição (completo com IA)
+- App do aluno: funcionando com onboarding, treino offline, nutrição, água, notificações
+- VPS: online em fitos.rbsconsulting.com.br com HTTPS
+- Próximo: Dashboard do professor

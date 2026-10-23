@@ -40,3 +40,10 @@
 - Itens salvos offline por uma versão antiga do app com tipo `snack` ainda são aceitos pela API
 - API precisa estar acessível pela internet (deploy Railway ou túnel) para uso fora de casa
 - Testar em aparelho: modo avião, fechar/reabrir, finalizar offline e sincronizar
+
+## Painel do professor (role `trainer`)
+- Home do professor (`components/trainer-home.tsx`, renderizada por `(tabs)/index.tsx` quando `role=trainer`): resumo, "Convidar aluno" (POST /invites/generate + share sheet), busca por nome, lista com selo verde/amarelo/cinza.
+- Perfil do aluno: `app/(app)/trainer/student/[id].tsx` (dados, IMC, gráfico de aderência semanal, plano ativo, últimos 7 treinos -> `log/[id]`).
+- Prescrição: aba "Prescrever" (escolhe o aluno) e botão no perfil do aluno -> `trainer/prescribe/[studentId]` (IA ou manual -> editar -> revisar -> enviar + aprovar). Editor compartilhado em `components/plan-editor.tsx` (também usado por `edit-plan.tsx`). A sugestão da IA nunca foi rodada com a Claude real.
+- Para o professor ficam ocultas as abas Treino/Nutrição/Progresso; onboarding e lembretes só para aluno.
+- Nada disso foi testado em aparelho; é só JS (funciona no Expo Go/Metro).

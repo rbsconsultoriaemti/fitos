@@ -68,3 +68,11 @@ export function defaultMeal(d = new Date()): (typeof MEAL_ORDER)[number] {
 
 /** Sem acento e em minúsculas, para busca local. */
 export const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+export const LEVEL_LABELS = { beginner: 'Iniciante', intermediate: 'Intermediário', advanced: 'Avançado' } as const;
+
+/** "Maria da Silva" -> "M" */
+export const initialOf = (name: string) => name.trim().charAt(0).toUpperCase() || '?';
+
+/** YYYY-MM-DD -> "dd/mm" */
+export const shortDate = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;

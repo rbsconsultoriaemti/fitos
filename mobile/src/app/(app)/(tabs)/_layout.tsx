@@ -7,7 +7,9 @@ import { useColors } from '@/theme';
 
 export default function TabsLayout() {
   const c = useColors();
-  const { signOut } = useSession();
+  const { signOut, user } = useSession();
+  const isTrainer = user?.role === 'trainer';
+  const hide = isTrainer ? { href: null } : {};
 
   return (
     <Tabs
@@ -34,15 +36,19 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="workout"
-        options={{ title: 'Treino', tabBarIcon: ({ color, size }) => <Ionicons name="barbell" color={color as string} size={size} /> }}
+        options={{ ...hide, title: 'Treino', tabBarIcon: ({ color, size }) => <Ionicons name="barbell" color={color as string} size={size} /> }}
       />
       <Tabs.Screen
         name="nutrition"
-        options={{ title: 'Nutrição', tabBarIcon: ({ color, size }) => <Ionicons name="nutrition" color={color as string} size={size} /> }}
+        options={{ ...hide, title: 'Nutrição', tabBarIcon: ({ color, size }) => <Ionicons name="nutrition" color={color as string} size={size} /> }}
       />
       <Tabs.Screen
         name="progress"
-        options={{ title: 'Progresso', tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart" color={color as string} size={size} /> }}
+        options={{ ...hide, title: 'Progresso', tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart" color={color as string} size={size} /> }}
+      />
+      <Tabs.Screen
+        name="prescribe"
+        options={{ ...(isTrainer ? {} : { href: null }), title: 'Prescrever', tabBarIcon: ({ color, size }) => <Ionicons name="create" color={color as string} size={size} /> }}
       />
       <Tabs.Screen
         name="profile"

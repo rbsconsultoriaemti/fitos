@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
+import { TrainerHome } from '@/components/trainer-home';
 import { DaySummary } from '@/components/day-summary';
 import { WaterWidget } from '@/components/water-widget';
 import { Button, Card, ErrorText, T } from '@/components/ui';
@@ -19,6 +20,11 @@ interface TodayWorkout {
 }
 
 export default function Home() {
+  const { user } = useSession();
+  return user?.role === 'trainer' ? <TrainerHome /> : <StudentHome />;
+}
+
+function StudentHome() {
   const { user } = useSession();
   const c = useColors();
   const [day, setDay] = useState<DayLog | null>(null);

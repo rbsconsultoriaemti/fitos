@@ -245,3 +245,65 @@ export interface MealTemplate {
   }[];
   totals: Macros;
 }
+
+// ---------- painel do professor ----------
+
+export type TodayStatus = 'trained' | 'pending' | 'rest' | 'no_plan';
+
+export interface TrainerStudentItem {
+  id: string;
+  name: string;
+  goal: string | null;
+  fitnessLevel: 'beginner' | 'intermediate' | 'advanced' | null;
+  todayStatus: TodayStatus;
+  streak: number;
+  onStreak: boolean;
+  lastWorkoutDate: string | null;
+}
+
+export interface TrainerStudents {
+  date: string;
+  summary: { total: number; trainedToday: number; onStreak: number; streakMin: number };
+  students: TrainerStudentItem[];
+}
+
+export interface TrainerStudentDetail {
+  student: {
+    id: string;
+    name: string;
+    goal: string | null;
+    fitnessLevel: 'beginner' | 'intermediate' | 'advanced' | null;
+    age: number | null;
+    heightCm: number | null;
+    weightKg: number | null;
+    bmi: number | null;
+    bmiCategory: string | null;
+    linkedAt: string;
+  };
+  todayStatus: TodayStatus;
+  streak: number;
+  plan: WorkoutPlan | null;
+  recentLogs: {
+    id: string;
+    performedAt: string;
+    date: string;
+    muscleGroup: string | null;
+    setsDone: number;
+    setsPrescribed: number;
+    adherencePct: number | null;
+    perceivedEffort: number | null;
+  }[];
+  weeklyAdherence: { weekStart: string; prescribed: number; done: number; pct: number | null }[];
+}
+
+export interface SuggestedPlan {
+  title: string;
+  durationWeeks: number | null;
+  summary: string;
+  days: {
+    dayOfWeek: number;
+    muscleGroup: string;
+    notes: string | null;
+    sets: { exerciseId: string; exerciseName: string; sets: number; reps?: string; loadKg?: number; restSeconds?: number; durationMin?: number; distanceKm?: number }[];
+  }[];
+}
