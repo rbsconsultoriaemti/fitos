@@ -55,3 +55,6 @@ Logs
 - Periodização (semanas com cargas progressivas) — hoje o plano é uma semana-tipo repetida
 - Paginação em listagens (limites fixos 100/200)
 - Testes automatizados
+
+## Prioridade do professor (migration 017)
+Aprovar um plano prescrito arquiva os planos ativos do aluno (trainer/self/ai) com `superseded_by`; arquivar o plano do professor devolve os próprios (self/ai) a ativo. Detalhes em `../trainer/STATUS.md`.

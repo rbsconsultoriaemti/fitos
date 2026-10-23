@@ -41,7 +41,7 @@ async function trainingData(studentIds: string[]) {
               ARRAY(SELECT d.day_of_week FROM workout_days d WHERE d.plan_id = p.id) AS weekdays
        FROM workout_plans p
        WHERE p.owner_id = ANY($1::uuid[]) AND p.status = 'active'
-       ORDER BY p.owner_id, p.created_at DESC`,
+       ORDER BY p.owner_id, (p.source = 'trainer') DESC, p.created_at DESC`,
       [studentIds, config.timezone],
     ),
     pool.query<{ student_id: string; day: string }>(

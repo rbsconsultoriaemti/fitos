@@ -7,12 +7,35 @@
  */
 import 'dotenv/config';
 import { execSync, spawn } from 'node:child_process';
+import http from 'node:http';
 import { Pool } from 'pg';
 import { addDays, isoWeekdayOf, mondayOf, STREAK_MIN, streak, todayIn, weeklyAdherence, type PlanInfo } from '../src/modules/trainer/trainer.logic';
 
 const PORT = 3993;
+const MOCK_PORT = 4013;
 const API = `http://localhost:${PORT}`;
 const TZ = process.env.APP_TIMEZONE ?? 'America/Sao_Paulo';
+
+// Claude simulado: guarda o pedido recebido e devolve um treino de 2 dias usando os refs 1 e 2 do catálogo.
+let claudeBody: { system: string; messages: { content: string }[]; tools: { name: string; input_schema: { properties: Record<string, unknown>; required: string[] } }[] } | null = null;
+const mock = http.createServer((req, res) => {
+  let data = '';
+  req.on('data', (c) => (data += c));
+  req.on('end', () => {
+    claudeBody = JSON.parse(data);
+    const input = {
+      title: 'Treino IA',
+      durationWeeks: 8,
+      summary: 'Rascunho simulado.',
+      days: [
+        { dayOfWeek: 1, muscleGroup: 'Superiores', sets: [{ ref: 1, sets: 3, reps: '10' }, { ref: 2, sets: 3, reps: '12' }] },
+        { dayOfWeek: 4, muscleGroup: 'Inferiores', sets: [{ ref: 1, sets: 4, reps: '8-10' }] },
+      ],
+    };
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ stop_reason: 'tool_use', content: [{ type: 'tool_use', name: 'criar_treino', input }] }));
+  });
+});
 
 let failures = 0;
 const check = (ok: boolean, what: string, extra?: unknown) => {
@@ -61,7 +84,8 @@ async function main() {
   console.log('— Lógica pura —');
   logicTests();
 
-  const server = spawn('npx', ['tsx', 'src/server.ts'], { cwd: process.cwd(), env: { ...process.env, PORT: String(PORT) }, shell: true });
+  await new Promise<void>((r) => mock.listen(MOCK_PORT, r));
+  const server = spawn('npx', ['tsx', 'src/server.ts'], { cwd: process.cwd(), env: { ...process.env, PORT: String(PORT), ANTHROPIC_API_KEY: 'chave-de-teste', ANTHROPIC_BASE_URL: `http://localhost:${MOCK_PORT}` }, shell: true });
   for (let i = 0; i < 60; i++) {
     try {
       if ((await fetch(`${API}/health`)).ok) break;
@@ -163,12 +187,64 @@ async function main() {
     check((await sug(a.id, a.token)).status === 403, 'sugerir: aluno não pode => 403');
     const incomplete = await sug(d.id, trainer.token);
     check(incomplete.status === 400 && incomplete.body.error === 'student_profile_incomplete', 'sugerir: perfil do aluno incompleto => 400 com mensagem', incomplete.body);
+    // sugestão com Claude simulado: prompt só de treino
+    const h = await register('Hugo', 'student');
+    const invH = await call('/invites/generate', trainer.token, 'POST');
+    await call('/invites/accept', h.token, 'POST', { token: invH.body.token });
+    await call('/profile', h.token, 'PUT', { birthDate: '1995-03-15', sex: 'male', heightCm: 180, weightKg: 80, fitnessLevel: 'intermediate' });
+    const ok = await sug(h.id, trainer.token);
+    check(ok.status === 200 && ok.body.title === 'Treino IA' && ok.body.days.length === 2 && ok.body.days[0].sets[0].exerciseName && ok.body.summary, 'sugerir: devolve o rascunho com nomes dos exercícios', ok.body);
+    check(!('meals' in ok.body) && !('mealPlan' in ok.body), 'sugerir: resposta sem plano alimentar');
+    const props = Object.keys(claudeBody?.tools[0].input_schema.properties ?? {});
+    check(claudeBody?.tools[0].name === 'criar_treino' && !props.includes('meals') && !claudeBody.tools[0].input_schema.required.includes('meals'), 'sugerir: ferramenta da Claude sem o campo de alimentação', props);
+    const sent = `${claudeBody?.system}
+${claudeBody?.messages[0].content}`;
+    check(!/aliment|kcal|refei|CATÁLOGO DE ALIMENTOS|META NUTRICIONAL/i.test(sent), 'sugerir: prompt sem nenhuma parte de alimentação');
+    check(/CATÁLOGO DE EXERCÍCIOS/.test(sent) && /Objetivo:/.test(sent) && /Nível:/.test(sent) && /idade: 30|idade: 31/.test(sent), 'sugerir: prompt traz perfil, objetivo, nível e catálogo de exercícios');
+    console.log(`  (prompt de treino: ${sent.length} caracteres)`);
+    const again = await sug(h.id, trainer.token);
+    check(again.status === 429, 'sugerir: segunda chamada seguida => 429', again.status);
+    const saved = await call(`/workout/plans?studentId=${h.id}`, trainer.token);
+    check(saved.status === 200 && saved.body.length === 0, 'sugerir não grava nenhum plano', saved.body);
+
+    // prioridade do plano do professor
+    const f = await register('Fabio', 'student');
+    const invF = await call('/invites/generate', trainer.token, 'POST');
+    await call('/invites/accept', f.token, 'POST', { token: invF.body.token });
+    const own = await call('/workout/plans', f.token, 'POST', { title: 'Meu plano', days: [{ dayOfWeek: 2, muscleGroup: 'Costas', sets }] });
+    check(own.status === 201 && own.body.source === 'self' && own.body.status === 'active', 'aluno cria plano próprio ativo', own.body);
+    await pool.query("INSERT INTO workout_plans (owner_id, title, source, status) VALUES ($1, 'Plano IA', 'ai', 'active')", [f.id]);
+    const activeOf = async (token: string) => ((await call('/workout/plans?status=active', token)).body as { title: string; source: string }[]);
+    check((await activeOf(f.token)).length === 2, 'antes: aluno tem 2 planos ativos (self + ai)');
+    const p1 = await prescribe(f.id, trainer.token, [1, 3]);
+    let act = await activeOf(f.token);
+    check(act.length === 1 && act[0].source === 'trainer', 'aprovar plano do professor arquiva self e ai: aluno vê só o do professor', act);
+    const p2 = await call('/workout/plans', trainer.token, 'POST', { studentId: f.id, title: 'Plano novo', days: [{ dayOfWeek: 4, muscleGroup: 'Pernas', sets }] });
+    await call(`/workout/plans/${p2.body.id}/approve`, trainer.token, 'POST');
+    act = await activeOf(f.token);
+    check(act.length === 1 && act[0].title === 'Plano novo', 'novo plano do professor substitui o anterior (só o mais recente)', act);
+    const ar2 = await call(`/workout/plans/${p2.body.id}/archive`, trainer.token, 'POST');
+    check(ar2.status === 200, 'professor arquiva o plano novo', ar2.body);
+    check((await activeOf(f.token)).length === 0, 'arquivar o mais recente não ressuscita o plano antigo do professor nem os próprios (foram substituídos por outro plano)');
+    // cenário limpo: um único plano do professor sobre os planos próprios
+    const g = await register('Gabi', 'student');
+    const invG = await call('/invites/generate', trainer.token, 'POST');
+    await call('/invites/accept', g.token, 'POST', { token: invG.body.token });
+    await call('/workout/plans', g.token, 'POST', { title: 'Plano da Gabi', days: [{ dayOfWeek: 2, muscleGroup: 'Costas', sets }] });
+    await pool.query("INSERT INTO workout_plans (owner_id, title, source, status) VALUES ($1, 'Plano IA', 'ai', 'active')", [g.id]);
+    const pg = await prescribe(g.id, trainer.token, [1]);
+    check((await activeOf(g.token)).length === 1, 'Gabi: só o plano do professor');
+    await call(`/workout/plans/${pg.id}/archive`, trainer.token, 'POST');
+    act = await activeOf(g.token);
+    check(act.length === 2 && act.every((x) => x.source !== 'trainer'), 'professor arquiva o plano dele: aluno volta aos planos próprios (self + ai)', act);
+    void p1;
     const empty = await register('Vazio', 'trainer');
     check((await call('/trainer/students', empty.token)).body.summary.total === 0, 'professor sem alunos: lista vazia');
   } finally {
     await pool.query('DELETE FROM users WHERE email = ANY($1)', [emails]).catch(() => undefined);
     await pool.end();
     server.kill();
+    mock.close();
     killPort(PORT);
   }
   console.log(failures === 0 ? '\nTUDO OK' : `\n${failures} VERIFICAÇÃO(ÕES) FALHARAM`);

@@ -266,6 +266,7 @@ export async function getPlan(auth: Auth, id: string) {
 export async function listPlans(auth: Auth, filter: { studentId?: string; status?: string }) {
   const params: unknown[] = [];
   const where: string[] = [];
+  let studentView = false;
   const add = (sql: string, value: unknown) => {
     params.push(value);
     where.push(sql.replace('?', `$${params.length}`));
@@ -287,6 +288,7 @@ export async function listPlans(auth: Auth, filter: { studentId?: string; status
   } else {
     add('p.owner_id = ?', auth.sub);
     where.push(`NOT (p.status = 'draft' AND p.source <> 'self')`);
+    studentView = true;
   }
   if (filter.status) add('p.status = ?', filter.status);
 
@@ -295,7 +297,7 @@ export async function listPlans(auth: Auth, filter: { studentId?: string; status
             p.duration_weeks AS "durationWeeks", p.created_at AS "createdAt"
      FROM workout_plans p
      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-     ORDER BY p.created_at DESC
+     ORDER BY ${studentView ? "(p.source = 'trainer') DESC," : ''} p.created_at DESC
      LIMIT 100`,
     params,
   );
@@ -460,11 +462,24 @@ export async function approvePlan(auth: Auth, id: string) {
   if (!(await hasActiveLink(auth.sub, plan.owner_id))) {
     throw new AppError(403, 'not_linked', 'Você não tem vínculo ativo com este aluno');
   }
-  const { rowCount } = await pool.query(
-    `UPDATE workout_plans SET status = 'active' WHERE id = $1 AND status = 'draft'`,
-    [id],
-  );
-  if (!rowCount) throw new AppError(409, 'plan_not_draft', 'Só rascunhos podem ser aprovados');
+  // O plano do professor tem prioridade: arquiva os planos ativos do aluno (próprios, da IA e anteriores do professor),
+  // anotando qual plano os substituiu para poder devolvê-los se o professor arquivar este.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rowCount } = await client.query(`UPDATE workout_plans SET status = 'active' WHERE id = $1 AND status = 'draft'`, [id]);
+    if (!rowCount) throw new AppError(409, 'plan_not_draft', 'Só rascunhos podem ser aprovados');
+    await client.query(
+      `UPDATE workout_plans SET status = 'archived', superseded_by = $2 WHERE owner_id = $1 AND status = 'active' AND id <> $2`,
+      [plan.owner_id, id],
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
   return getPlan(auth, id);
 }
 
@@ -474,6 +489,15 @@ export async function archivePlan(auth: Auth, id: string) {
   const isSelfOwner = isOwnerEditable(plan, auth);
   if (!isSelfOwner) assertPrescriber(auth, plan);
   await pool.query(`UPDATE workout_plans SET status = 'archived' WHERE id = $1`, [id]);
+  // Plano do professor arquivado: o aluno volta a ver os planos próprios que ele havia substituído (se não tiver outro ativo).
+  if (plan.source === 'trainer' && plan.status === 'active') {
+    await pool.query(
+      `UPDATE workout_plans SET status = 'active', superseded_by = NULL
+       WHERE superseded_by = $1 AND source IN ('self', 'ai') AND status = 'archived'
+         AND NOT EXISTS (SELECT 1 FROM workout_plans a WHERE a.owner_id = $2 AND a.status = 'active')`,
+      [id, plan.owner_id],
+    );
+  }
   return getPlan(auth, id);
 }
 
@@ -616,7 +640,7 @@ export async function listLogs(auth: Auth, filter: { studentId?: string; planId?
 /** Plano ativo mais recente do aluno, completo (dias, exercícios). O chamador já verificou o vínculo. */
 export async function activePlanFor(studentId: string) {
   const { rows } = await pool.query<PlanRow>(
-    `SELECT * FROM workout_plans WHERE owner_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
+    `SELECT * FROM workout_plans WHERE owner_id = $1 AND status = 'active' ORDER BY (source = 'trainer') DESC, created_at DESC LIMIT 1`,
     [studentId],
   );
   return rows[0] ? buildPlan(rows[0]) : null;

@@ -241,17 +241,14 @@ const round5 = (g: number) => Math.min(1500, Math.max(5, Math.round(g / 5) * 5))
 type DaySets = PlanContent['days'][number]['sets'];
 type RawPlan = z.infer<typeof rawPlan>;
 
-/** Converte a resposta já validada em conteúdo gravável, descartando referências inexistentes (registradas em `warnings`). */
-function build(
-  raw: RawPlan,
+/** Treino (dias e exercícios do catálogo) validado e pronto para gravar; ou a lista de problemas. */
+function buildTraining(
+  raw: Pick<RawPlan, 'title' | 'durationWeeks' | 'days'>,
   catalog: CatalogExercise[],
-  foodList: { id: string; food: { name: string; kcal: number; protein: number; carb: number; fat: number } }[],
-  p: PersonForPlan,
+  daysPerWeek: number,
   warnings: string[],
-): GeneratedPlan | PlanIssue[] {
+): { content: PlanContent } | PlanIssue[] {
   const issues: PlanIssue[] = [];
-
-  // --- treino ---
   const seen = new Set<number>();
   const days: PlanContent['days'] = [];
   raw.days.forEach((d, di) => {
@@ -293,17 +290,32 @@ function build(
     });
   });
   days.sort((a, b) => a.dayOfWeek - b.dayOfWeek);
-  if (days.length > p.answers.daysPerWeek) warnings.push(`IA devolveu ${days.length} dias; mantidos os ${p.answers.daysPerWeek} primeiros`);
-  if (days.length < p.answers.daysPerWeek) warnings.push(`IA devolveu só ${days.length} dias de treino (pedidos ${p.answers.daysPerWeek})`);
+  if (days.length > daysPerWeek) warnings.push(`IA devolveu ${days.length} dias; mantidos os ${daysPerWeek} primeiros`);
+  if (days.length < daysPerWeek) warnings.push(`IA devolveu só ${days.length} dias de treino (pedidos ${daysPerWeek})`);
 
   const content = updatePlanSchema.safeParse({
     title: raw.title.trim().slice(0, 120),
     durationWeeks: int(raw.durationWeeks, 1, 52),
-    days: days.slice(0, p.answers.daysPerWeek),
+    days: days.slice(0, daysPerWeek),
   });
   if (!content.success) {
     issues.push(...content.error.issues.map((i) => ({ path: i.path.join('.') || 'plano', message: i.message })));
   }
+
+  return issues.length > 0 || !content.success ? issues : { content: content.data };
+}
+
+/** Converte a resposta já validada em conteúdo gravável, descartando referências inexistentes (registradas em `warnings`). */
+function build(
+  raw: RawPlan,
+  catalog: CatalogExercise[],
+  foodList: { id: string; food: { name: string; kcal: number; protein: number; carb: number; fat: number } }[],
+  p: PersonForPlan,
+  warnings: string[],
+): GeneratedPlan | PlanIssue[] {
+  const issues: PlanIssue[] = [];
+  const training = buildTraining(raw, catalog, p.answers.daysPerWeek, warnings);
+  if (Array.isArray(training)) issues.push(...training);
 
   // --- plano alimentar ---
   const meals: GeneratedMealPlan['meals'] = [];
@@ -330,7 +342,7 @@ function build(
     });
   });
 
-  if (issues.length > 0 || !content.success) return issues;
+  if (issues.length > 0 || Array.isArray(training)) return issues;
 
   // Ajusta as quantidades para a soma do dia bater com a meta calórica (a IA erra na conta; o servidor não).
   const per100 = new Map(foodList.map((f) => [f.id, f.food]));
@@ -355,7 +367,7 @@ function build(
   }
 
   return {
-    content: content.data,
+    content: training.content,
     summary: raw.summary.trim().slice(0, 1500),
     mealPlan: { meals, totals: { kcal: Math.round(totals.kcal), proteinG: Math.round(totals.proteinG), carbG: Math.round(totals.carbG), fatG: Math.round(totals.fatG) } },
   };
@@ -422,6 +434,96 @@ export async function generatePlans(p: PersonForPlan, log: OnboardingLogger): Pr
       totaisPlanoAlimentar: built.mealPlan.totals,
     });
     return built;
+  }
+  throw new AppError(422, 'ai_invalid_response', 'A IA devolveu um plano em formato inválido. Tente novamente.', { issues: lastIssues });
+}
+
+// ---------- só treino (sugestão do professor) ----------
+
+export type PersonForWorkout = Pick<PersonForPlan, 'age' | 'sex' | 'weightKg' | 'heightCm' | 'level' | 'answers'>;
+
+export interface GeneratedWorkout {
+  content: PlanContent;
+  summary: string;
+}
+
+// Versão enxuta do prompt: sem alimentação, sem metas nutricionais e sem catálogo de alimentos.
+const WORKOUT_SYSTEM = `Você é um assistente de prescrição de treino do app FitOS, usado por um professor de Educação Física que vai revisar sua sugestão. Monte um plano de treino SEMANAL, que se repete, chamando a ferramenta criar_treino.
+
+Use EXCLUSIVAMENTE exercícios do catálogo, referenciados pelo número ("ref"):
+- Use exatamente o número de dias de treino pedido, em dias da semana bem distribuídos (1 = segunda ... 7 = domingo), com descanso entre dias do mesmo grupo muscular.
+- Ajuste a quantidade de exercícios à duração da sessão (musculação: ~6 a 8 min por exercício incluindo descanso; considere o aquecimento).
+- Respeite o local de treino: em casa ou ao ar livre prefira peso corporal, halteres, funcionais e cardio; academia permite máquinas e barras; misto combina.
+- Contemple as modalidades escolhidas. Corrida e ciclismo entram como dias de cardio (durationMin e, se couber, distanceKm), usando os exercícios de cardio do catálogo; se a modalidade for "outro", use o bom senso.
+- Nível: iniciante = full body ou divisão simples, 2 a 3 séries, repetições 10-15; intermediário = divisões ABC/ABCD, 3 a 4 séries; avançado = maior volume e divisão por grupos, 3 a 5 séries. Não invente cargas.
+- Objetivo: perder gordura = mais cardio e circuitos, descansos curtos; ganhar massa = foco em compostos, 8-12 repetições, descanso de 60 a 120 s; condicionamento = mistura de força e cardio; manter = equilíbrio; prova = priorize a modalidade da prova com sessões progressivas e a musculação como apoio.
+- Se houver lesão ou limitação informada, evite exercícios que sobrecarreguem a região e diga isso nas "notes" do dia e no "summary". Não faça diagnóstico.
+- Cada item de "sets" é UM exercício; para força informe "reps" (ex.: "10" ou "8-12"); para cardio informe durationMin e/ou distanceKm, nunca reps.
+
+Escreva em português do Brasil. O "summary" tem até 3 frases curtas sobre a lógica do treino, lembrando que é um rascunho para o professor revisar.`;
+
+function buildWorkoutPrompt(p: PersonForWorkout, catalog: CatalogExercise[]) {
+  const a = p.answers;
+  const bmi = Math.round((p.weightKg / (p.heightCm / 100) ** 2) * 10) / 10;
+  const race = a.goalKey === 'race' && a.raceType ? ` (${a.raceType === 'running' ? 'corrida' : 'ciclismo'})` : '';
+  const exerciseLines = catalog.map((e, i) => `${i + 1} | ${e.name} | ${e.muscle_group} | ${e.category}${e.equipment ? ` | ${e.equipment}` : ''}`);
+  return `ALUNO
+- Sexo: ${p.sex === 'male' ? 'masculino' : p.sex === 'female' ? 'feminino' : 'outro'}; idade: ${p.age} anos; peso: ${p.weightKg} kg; altura: ${p.heightCm} cm; IMC: ${bmi}
+- Objetivo: ${GOAL_LABELS[a.goalKey]}${race}
+- Nível: ${LEVEL_PT[p.level]}
+- Treina ${a.daysPerWeek} dias por semana, ${a.sessionMinutes} minutos por sessão, ${LOCATION_PT[a.location]}
+- Modalidades: ${a.modalities.map((m) => MODALITY_PT[m]).join(', ')}
+- Lesões/limitações: ${a.injuries || 'nenhuma informada'}
+
+CATÁLOGO DE EXERCÍCIOS (ref | exercício | grupo muscular | categoria | equipamento)
+${exerciseLines.join('\n')}
+
+Monte o treino chamando a ferramenta criar_treino.`;
+}
+
+const { meals: _meals, ...WORKOUT_PROPERTIES } = TOOL.input_schema.properties as Record<string, unknown>;
+const WORKOUT_TOOL = {
+  name: 'criar_treino',
+  description: 'Registra o plano de treino semanal e o resumo explicativo.',
+  input_schema: { type: 'object', properties: WORKOUT_PROPERTIES, required: ['title', 'summary', 'days'] },
+};
+const rawWorkout = rawPlan.omit({ meals: true });
+
+/** Gera só o treino (sem plano alimentar): menos tokens por chamada. Mesma validação e 2 tentativas do gerador completo. */
+export async function generateWorkout(p: PersonForWorkout, log: OnboardingLogger): Promise<GeneratedWorkout> {
+  const { rows: catalog } = await pool.query<CatalogExercise>(
+    'SELECT id, name, muscle_group, category, equipment FROM exercises ORDER BY muscle_group, name',
+  );
+  if (catalog.length === 0) throw new AppError(500, 'no_exercises', 'Catálogo de exercícios vazio');
+
+  const user = buildWorkoutPrompt(p, catalog);
+  log.debug('prompt de treino enviado à Claude API', `\n--- SYSTEM ---\n${WORKOUT_SYSTEM}\n--- USER ---\n${user}`);
+  log.info('prompt de treino montado', { chars: user.length, exercicios: catalog.length });
+
+  let lastIssues: PlanIssue[] = [];
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const res = await callClaudeTool({ system: WORKOUT_SYSTEM, user, tool: WORKOUT_TOOL }, log);
+    if (res.stopReason === 'max_tokens') {
+      lastIssues = [{ path: '(resposta)', message: 'resposta cortada por limite de tokens (max_tokens)' }];
+      log.error(`tentativa ${attempt}: resposta truncada`, { stopReason: res.stopReason });
+      continue;
+    }
+    const parsed = rawWorkout.safeParse(res.input);
+    if (!parsed.success) {
+      lastIssues = parsed.error.issues.map((i) => ({ path: i.path.join('.') || '(raiz)', message: i.message }));
+      log.error(`tentativa ${attempt}: resposta fora do formato esperado`, { issues: lastIssues, input: truncate(JSON.stringify(res.input), 2500) });
+      continue;
+    }
+    const warnings: string[] = [];
+    const built = buildTraining(parsed.data, catalog, p.answers.daysPerWeek, warnings);
+    if (warnings.length) log.warn(`tentativa ${attempt}: ajustes na resposta da IA`, warnings);
+    if (Array.isArray(built)) {
+      lastIssues = built;
+      log.error(`tentativa ${attempt}: resposta sem conteúdo utilizável`, { issues: built });
+      continue;
+    }
+    log.info('treino da IA validado', { dias: built.content.days.length });
+    return { content: built.content, summary: parsed.data.summary.trim().slice(0, 1500) };
   }
   throw new AppError(422, 'ai_invalid_response', 'A IA devolveu um plano em formato inválido. Tente novamente.', { issues: lastIssues });
 }

@@ -1,10 +1,8 @@
 import { pool } from '../../database/pool';
 import { AppError } from '../../shared/errors';
-import { loadFoodContext } from '../onboarding/food-context';
-import { computeNutritionTargets } from '../onboarding/nutrition-targets';
 import { createLogger } from '../onboarding/onboarding.log';
 import { completeAnswersSchema } from '../onboarding/onboarding.schemas';
-import { generatePlans } from '../onboarding/plan-generator';
+import { generateWorkout } from '../onboarding/plan-generator';
 
 // Cada sugestão custa uma chamada à Claude API: no máximo uma por professor a cada 30 s.
 const COOLDOWN_MS = 30_000;
@@ -18,8 +16,8 @@ const ageOf = (birthDate: string) => {
 
 /**
  * Rascunho de treino para o aluno, gerado pela IA a partir do perfil dele. NÃO grava nada: o professor revisa,
- * edita e só então envia (POST /workout/plans + approve). O gerador também monta um plano alimentar, que é descartado
- * aqui (prescrição de dieta é do nutricionista).
+ * edita e só então envia (POST /workout/plans + approve). Usa o gerador só de treino (prompt enxuto, sem alimentação:
+ * prescrição de dieta é do nutricionista).
  */
 export async function suggestPlan(trainerId: string, studentId: string) {
   const { rows: link } = await pool.query(
@@ -60,17 +58,7 @@ export async function suggestPlan(trainerId: string, studentId: string) {
     const age = ageOf(r.birth_date);
     const weightKg = Number(r.weight_kg);
     const heightCm = Number(r.height_cm);
-    const nutrition = computeNutritionTargets({
-      weightKg,
-      heightCm,
-      age,
-      sex: r.sex,
-      goal: answers.goalKey,
-      daysPerWeek: answers.daysPerWeek,
-      sessionMinutes: answers.sessionMinutes,
-    });
-    const foods = await loadFoodContext(studentId, answers.favoriteFoods, log);
-    const generated = await generatePlans({ age, sex: r.sex, weightKg, heightCm, level, answers, nutrition, foods, defaultsUsed: [] }, log);
+    const generated = await generateWorkout({ age, sex: r.sex, weightKg, heightCm, level, answers }, log);
 
     // O app precisa dos nomes para exibir/editar os exercícios.
     const ids = [...new Set(generated.content.days.flatMap((d) => d.sets.map((s) => s.exerciseId)))];
