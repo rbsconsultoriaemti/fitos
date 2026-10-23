@@ -78,6 +78,7 @@ Roles no banco: `student | trainer | running_coach | cycling_coach | nutritionis
 | Reconhecimento de foto (`POST /nutrition/recognize`) | **10 fotos por mês**               | **20 fotos por dia**                 |
 | Geração de plano de treino por IA (`POST /onboarding/complete`) | **1 geração a cada 3 meses** | **1 geração por semana**             |
 
+- **Janela corrente (decidido), não período de calendário:** o período é contado para trás a partir de agora. Plano de treino por IA: só libera de novo 3 meses (gratuito) ou 7 dias (pago) depois do último uso. Fotos: conta o que foi usado nos últimos 30 dias (gratuito) ou nas últimas 24 h (pago); o limite volta a liberar quando o uso mais antigo da janela completa 30 dias / 24 h. Assim ninguém ganha cota extra por usar no fim de um mês ou de uma semana.
 - Estourou o limite → API responde **429** com mensagem amigável (o app mostra quantas fotos restam: no mês para o básico, no dia para o pago).
 - O plano pago só vale com assinatura ativa confirmada no RevenueCat; sem confirmação, a cota é a do básico.
 - Uso rastreado na tabela `usage_quotas` (a criar, ver PROXIMOS_PASSOS.md). Enquanto não existir, só há um limite provisório em memória no onboarding (1 geração/60 s) e nenhum no reconhecimento de foto.

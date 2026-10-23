@@ -31,7 +31,7 @@ Limites: **gratuito** = 10 fotos/mês + 1 plano de treino por IA a cada 3 meses;
    - Middleware que checa a cota ANTES de `POST /nutrition/recognize` e `POST /onboarding/complete` e só consome depois do sucesso (falha da IA não gasta cota)
    - Erro **429** com mensagem amigável e dados do limite (usado, limite, quando renova)
    - App: mostrar quantas fotos restam (no mês no básico, no dia no pago) na tela da foto; avisar quando a geração de plano ainda não está liberada
-   - Decidir: "por mês"/"por semana"/"a cada 3 meses" em janela corrente (desde o último uso) ou período de calendário; fuso `APP_TIMEZONE`
+   - **Janela corrente (decidido)**: períodos contados para trás a partir de agora, não por calendário. Plano de treino: próxima geração liberada em último uso + 3 meses (gratuito) ou + 7 dias (pago). Fotos: usos dos últimos 30 dias (gratuito) ou 24 h (pago); a cota volta quando o uso mais antigo sai da janela. A resposta 429 e o contador do app devem dizer QUANDO libera (data/hora do vencimento do uso mais antigo). Consulta simples sobre `usage_quotas.used_at`, sem job de reset
 3. [ ] **Verificar o plano ativo via RevenueCat** antes de liberar a cota paga (webhook + consulta à API; guardar o estado em `subscriptions`; sem confirmação vale a cota do básico)
 4. [ ] Substituir o limite provisório em memória do onboarding (1 geração/60 s) por essas cotas (Redis ou banco)
 
