@@ -21,6 +21,20 @@ Feito (detalhes nos STATUS.md de cada módulo):
 - [ ] Primeira geração real com a Claude (onboarding e foto): conferir qualidade do prompt (`onboarding/plan-generator.ts`, `ai-service/app/vision.py`), custo e latência
 - [ ] Limpar exercícios de teste do banco local ("Supino 562029", "Agachamento 562029")
 
+## Roadmap — cotas, custo e assinatura (regras de negócio em CLAUDE.md, "Limites por plano")
+
+Limites: **gratuito** = 10 fotos/mês + 1 plano de treino por IA a cada 3 meses; **pago (R$ 19/mês ou R$ 175/ano)** = 20 fotos/dia + novo plano de treino toda semana.
+
+1. [ ] **Trocar o modelo do reconhecimento de foto** de `claude-opus-4-5` para `claude-haiku-5-5` (`ANTHROPIC_MODEL` no ai-service; custo de ~R$ 0,20 para ~R$ 0,02 por foto). Antes de fixar: comparar a qualidade das estimativas de gramas com fotos reais de pratos brasileiros
+2. [ ] **Controle de cotas por plano**
+   - Tabela `usage_quotas` (migration) para rastrear o uso por usuário, recurso (`photo_recognition`, `ai_workout_plan`) e período
+   - Middleware que checa a cota ANTES de `POST /nutrition/recognize` e `POST /onboarding/complete` e só consome depois do sucesso (falha da IA não gasta cota)
+   - Erro **429** com mensagem amigável e dados do limite (usado, limite, quando renova)
+   - App: mostrar quantas fotos restam (no mês no básico, no dia no pago) na tela da foto; avisar quando a geração de plano ainda não está liberada
+   - Decidir: "por mês"/"por semana"/"a cada 3 meses" em janela corrente (desde o último uso) ou período de calendário; fuso `APP_TIMEZONE`
+3. [ ] **Verificar o plano ativo via RevenueCat** antes de liberar a cota paga (webhook + consulta à API; guardar o estado em `subscriptions`; sem confirmação vale a cota do básico)
+4. [ ] Substituir o limite provisório em memória do onboarding (1 geração/60 s) por essas cotas (Redis ou banco)
+
 ## Backlog técnico
 - Rate limit por usuário em `/nutrition/recognize` e `/onboarding/complete` (hoje só em memória no onboarding; ideal Redis)
 - Foto no S3 (`food_logs.photo_url` fica nulo)

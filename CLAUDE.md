@@ -71,6 +71,18 @@ Roles no banco: `student | trainer | running_coach | cycling_coach | nutritionis
 - FTP em % calibra todos os intervalos de ciclismo automaticamente
 - Fluxo de prescrição: IA sugere rascunho → profissional revisa/edita → aprova → aluno recebe
 
+### Limites por plano (decididos em 2026-10-22; cada chamada de IA custa dinheiro)
+
+| Recurso                                    | Plano gratuito (básico)            | Plano pago (R$ 19/mês ou R$ 175/ano) |
+|--------------------------------------------|------------------------------------|--------------------------------------|
+| Reconhecimento de foto (`POST /nutrition/recognize`) | **10 fotos por mês**               | **20 fotos por dia**                 |
+| Geração de plano de treino por IA (`POST /onboarding/complete`) | **1 geração a cada 3 meses** | **1 geração por semana**             |
+
+- Estourou o limite → API responde **429** com mensagem amigável (o app mostra quantas fotos restam: no mês para o básico, no dia para o pago).
+- O plano pago só vale com assinatura ativa confirmada no RevenueCat; sem confirmação, a cota é a do básico.
+- Uso rastreado na tabela `usage_quotas` (a criar, ver PROXIMOS_PASSOS.md). Enquanto não existir, só há um limite provisório em memória no onboarding (1 geração/60 s) e nenhum no reconhecimento de foto.
+- Modelo do reconhecimento de foto: migrar de `claude-opus-4-5` para `claude-haiku-5-5` (custo ~R$ 0,20 → ~R$ 0,02 por foto) para sustentar essas cotas.
+
 ---
 
 ## Tabelas principais do banco (PostgreSQL)
