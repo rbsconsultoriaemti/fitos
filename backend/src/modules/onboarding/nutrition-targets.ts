@@ -1,4 +1,5 @@
 import { mifflinStJeor } from '../nutrition/energy.service';
+import { goalAdjustment, safetyFloor } from '../nutrition/goal-adjustment';
 import type { OnboardingAnswers } from './onboarding.schemas';
 
 // Meta calórica e macros do onboarding: fórmulas fixas (reprodutíveis), não geradas pela IA.
@@ -46,22 +47,11 @@ export function computeNutritionTargets(input: {
   const activityFactor = Math.min(1.55, 1.2 + 0.06 * weeklyHours);
   const tdee = bmr * activityFactor;
 
-  let adjustmentPct = { lose_fat: -20, gain_muscle: 10, conditioning: 0, maintain: 0, race: 5 }[goal];
-  if (goal === 'lose_fat') {
-    if (bmi >= 30) adjustmentPct = -25;
-    else if (bmi < 20) adjustmentPct = -10;
-  }
-  if (goal === 'gain_muscle' && bmi >= 28) adjustmentPct = 5;
-  if (age < 18 && adjustmentPct !== 0) {
-    adjustmentPct = 0;
-    notes.push('Para menores de 18 anos a meta fica na manutenção; déficit ou superávit calórico só com acompanhamento profissional.');
-  } else if (goal === 'lose_fat' && bmi < 18.5) {
-    adjustmentPct = 0;
-    notes.push('Seu IMC está abaixo do peso: a meta ficou na manutenção. Procure um profissional antes de buscar déficit calórico.');
-  }
+  const adj = goalAdjustment(goal, bmi, age);
+  const adjustmentPct = adj.pct;
+  notes.push(...adj.notes);
 
-  // Piso de segurança: nunca abaixo de 90% da TMB nem de 1.200 (mulheres/outro) ou 1.500 kcal (homens).
-  const floor = Math.max(bmr * 0.9, sex === 'male' ? 1500 : 1200);
+  const floor = safetyFloor(bmr, sex);
   let kcal = tdee * (1 + adjustmentPct / 100);
   if (kcal < floor) {
     kcal = floor;

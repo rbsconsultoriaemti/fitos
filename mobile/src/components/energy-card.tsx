@@ -13,6 +13,8 @@ import { radius, space, useColors } from '@/theme';
 const SOURCE_LABEL = { override: 'definida por você', plan: 'do seu plano alimentar', dynamic: 'calculada' } as const;
 const MISSING_LABEL: Record<string, string> = { weight: 'peso', height: 'altura', birthDate: 'data de nascimento', sex: 'sexo' };
 
+const GOAL_SHORT = { lose_fat: 'emagrecer', gain_muscle: 'ganhar massa', conditioning: 'condicionamento', maintain: 'manter', race: 'prova' } as const;
+
 const fmtFactor = (n: number) => n.toFixed(2).replace('.', ',');
 
 /** Meta de calorias do dia (calculada pelo perfil e treinos; o usuário pode sobrescrever) e como ela foi calculada. */
@@ -82,6 +84,11 @@ export function EnergyCard({ day, onChanged }: { day: DayLog; onChanged: () => v
               ? `Meta base: ${fmt0(b.baseKcal)} kcal + Treino: +${fmt0(b.exerciseKcal)} kcal = ${fmt0(b.dynamicKcal)} kcal`
               : `Meta base: ${fmt0(b.baseKcal)} kcal · dia sem treino registrado`}
           </T>
+          {energy && energy.goalAdjustmentPct !== 0 && energy.tdeeKcal !== null ? (
+            <T variant="body" style={{ fontWeight: '600' }}>
+              {`Objetivo${energy.goalKey ? ` (${GOAL_SHORT[energy.goalKey]})` : ''}: ${energy.goalAdjustmentPct > 0 ? '+' : '−'}${Math.abs(energy.goalAdjustmentPct)}% = ${energy.goalAdjustmentKcal > 0 ? '+' : '−'}${fmt0(Math.abs(energy.goalAdjustmentKcal))} kcal → ${fmt0(b.dynamicKcal)} kcal`}
+            </T>
+          ) : null}
           <T variant="muted">
             {`Metabolismo basal ${fmt0(b.bmr)} × 1,2` +
               (b.exerciseKcal > 0 ? ` · ${b.trainingMinutes} min de treino (fator ${fmtFactor(b.activityFactor)})` : ' · a meta sobe quando você registrar um treino')}

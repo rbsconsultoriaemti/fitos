@@ -1,5 +1,6 @@
 import { pool } from '../../database/pool';
 import { config } from '../../shared/config';
+import { goalAdjustment, isGoalKey, safetyFloor, type GoalKey } from './goal-adjustment';
 
 // Meta diária de calorias = TMB (Mifflin-St Jeor) × 1,2 (dia sem treino) + gasto estimado dos treinos registrados no dia
 // (musculação: séries feitas × 2,5 min × MET 6 × peso).
@@ -17,11 +18,17 @@ export interface EnergyTarget {
   overrideKcal: number | null;
   /** Campos do perfil que faltam para calcular (weight, height, birthDate, sex). */
   missing: string[];
-  /** Partes da meta calculada do dia (TMB × 1,2 + treino); null quando faltam dados. `targetKcal` = `baseKcal` + `workoutKcal`. */
+  /** Partes da meta calculada do dia (TMB × 1,2 + treino); null quando faltam dados. `tdeeKcal` = `baseKcal` + `workoutKcal`; `targetKcal` = `tdeeKcal` com o ajuste do objetivo. */
   baseKcal: number | null;
   workoutKcal: number | null;
   workoutDone: boolean;
   targetKcal: number | null;
+  /** Ajuste do objetivo sobre (base + treino): percentual (ex.: -20) e kcal (negativo = déficit). */
+  goalKey: GoalKey | null;
+  goalAdjustmentPct: number;
+  goalAdjustmentKcal: number;
+  /** Gasto estimado do dia antes do ajuste: baseKcal + workoutKcal. */
+  tdeeKcal: number | null;
   /** Cálculo detalhado; null quando faltam dados. */
   breakdown: {
     bmr: number;
@@ -112,7 +119,7 @@ async function dayWorkouts(userId: string, date: string, weightKg: number) {
 
 export async function computeEnergyTarget(userId: string, date: string): Promise<EnergyTarget> {
   const { rows } = await pool.query(
-    `SELECT p.weight_kg, p.height_cm, to_char(p.birth_date, 'YYYY-MM-DD') AS birth_date, p.sex, p.kcal_target_override
+    `SELECT p.weight_kg, p.height_cm, to_char(p.birth_date, 'YYYY-MM-DD') AS birth_date, p.sex, p.kcal_target_override, p.onboarding->>'goalKey' AS goal_key
      FROM users u LEFT JOIN profiles p ON p.user_id = u.id WHERE u.id = $1`,
     [userId],
   );
@@ -127,14 +134,19 @@ export async function computeEnergyTarget(userId: string, date: string): Promise
   ].filter(Boolean) as string[];
 
   if (missing.length > 0) {
-    return { kcal: overrideKcal, source: overrideKcal === null ? null : 'override', overrideKcal, missing, baseKcal: null, workoutKcal: null, workoutDone: false, targetKcal: null, breakdown: null };
+    return { kcal: overrideKcal, source: overrideKcal === null ? null : 'override', overrideKcal, missing, baseKcal: null, workoutKcal: null, workoutDone: false, targetKcal: null, goalKey: null, goalAdjustmentPct: 0, goalAdjustmentKcal: 0, tdeeKcal: null, breakdown: null };
   }
 
   const weightKg = Number(p.weight_kg);
   const bmr = mifflinStJeor({ weightKg, heightCm: Number(p.height_cm), age: ageOn(p.birth_date, date), sex: p.sex });
   const baseKcal = bmr * BASE_ACTIVITY;
   const workout = await dayWorkouts(userId, date, weightKg);
-  const dynamicKcal = Math.round(baseKcal + workout.kcal);
+  const tdeeKcal = Math.round(baseKcal + workout.kcal);
+  // Ajuste do objetivo (déficit/superávit) sobre o gasto do dia, com o mesmo piso de segurança do onboarding.
+  const heightCm = Number(p.height_cm);
+  const goalKey = isGoalKey(p.goal_key) ? p.goal_key : null;
+  const adj = goalKey ? goalAdjustment(goalKey, weightKg / (heightCm / 100) ** 2, ageOn(p.birth_date, date)) : { pct: 0, notes: [] };
+  const dynamicKcal = adj.pct === 0 ? tdeeKcal : Math.round(Math.max(tdeeKcal * (1 + adj.pct / 100), safetyFloor(bmr, p.sex)));
 
   return {
     kcal: overrideKcal ?? dynamicKcal,
@@ -145,6 +157,10 @@ export async function computeEnergyTarget(userId: string, date: string): Promise
     workoutKcal: workout.kcal,
     workoutDone: workout.sessions > 0,
     targetKcal: dynamicKcal,
+    goalKey,
+    goalAdjustmentPct: adj.pct,
+    goalAdjustmentKcal: dynamicKcal - tdeeKcal,
+    tdeeKcal,
     breakdown: {
       bmr: Math.round(bmr),
       baseKcal: Math.round(baseKcal),

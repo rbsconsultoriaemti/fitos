@@ -222,7 +222,11 @@ export interface EnergyTarget {
   baseKcal: number | null; // TMB × 1,2
   workoutKcal: number | null; // gasto estimado dos treinos registrados no dia
   workoutDone: boolean;
-  targetKcal: number | null; // baseKcal + workoutKcal
+  tdeeKcal: number | null; // baseKcal + workoutKcal (antes do ajuste do objetivo)
+  targetKcal: number | null; // tdeeKcal com o ajuste do objetivo
+  goalKey: 'lose_fat' | 'gain_muscle' | 'conditioning' | 'maintain' | 'race' | null;
+  goalAdjustmentPct: number; // ex.: -20
+  goalAdjustmentKcal: number; // negativo = déficit
   breakdown: {
     bmr: number;
     baseKcal: number;

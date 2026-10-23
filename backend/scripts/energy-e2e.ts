@@ -87,6 +87,21 @@ async function main() {
     check(d.energy.workoutKcal === workout && d.energy.workoutDone === true, `kcal do treino = séries × 2,5 min × MET 6 × peso = ${workout}`, d.energy);
     check(d.energy.targetKcal === base + workout && d.targets.kcal === base + workout && d.targets.kcalSource === 'dynamic', 'com treino: meta = base + treino', { energy: d.energy, targets: d.targets });
 
+    console.log('— Ajuste do objetivo —');
+    await pool.query(`UPDATE profiles SET onboarding = jsonb_set(COALESCE(onboarding, '{}'::jsonb), '{goalKey}', '"lose_fat"') WHERE user_id = $1`, [userId]);
+    d = await day();
+    const tdee = base + workout;
+    const cut = Math.round(tdee * 0.8);
+    check(d.energy.tdeeKcal === tdee && d.energy.goalAdjustmentPct === -20 && d.energy.targetKcal === cut && d.energy.goalAdjustmentKcal === cut - tdee, 'emagrecer: (base + treino) com −20%', d.energy);
+    check(d.targets.kcal === cut && d.targets.kcalSource === 'dynamic', 'a meta do dia aplica o ajuste do objetivo', d.targets);
+    await pool.query(`UPDATE profiles SET onboarding = jsonb_set(onboarding, '{goalKey}', '"gain_muscle"') WHERE user_id = $1`, [userId]);
+    d = await day();
+    check(d.energy.goalAdjustmentPct === 10 && d.energy.targetKcal === Math.round(tdee * 1.1), 'ganhar massa: +10%', d.energy);
+    await pool.query(`UPDATE profiles SET onboarding = jsonb_set(onboarding, '{goalKey}', '"maintain"') WHERE user_id = $1`, [userId]);
+    d = await day();
+    check(d.energy.goalAdjustmentPct === 0 && d.energy.targetKcal === tdee, 'manter: sem ajuste', d.energy);
+    await pool.query(`UPDATE profiles SET onboarding = jsonb_set(onboarding, '{goalKey}', '"lose_fat"') WHERE user_id = $1`, [userId]);
+
     console.log('— Precedências —');
     await pool.query(`UPDATE diet_plans SET source = 'nutritionist' WHERE patient_id = $1`, [userId]);
     d = await day();
@@ -94,7 +109,7 @@ async function main() {
     await pool.query(`UPDATE diet_plans SET status = 'archived' WHERE patient_id = $1`, [userId]);
     await call('/nutrition/energy-target', token, 'PUT', { overrideKcal: 2222 });
     d = await day();
-    check(d.targets.kcal === 2222 && d.targets.kcalSource === 'override' && d.energy.targetKcal === base + workout, 'meta manual prevalece; o cálculo continua disponível', d.targets);
+    check(d.targets.kcal === 2222 && d.targets.kcalSource === 'override' && d.energy.targetKcal === cut, 'meta manual prevalece; o cálculo continua disponível', d.targets);
   } finally {
     await pool.query('DELETE FROM users WHERE email = $1', [email]).catch(() => undefined);
     await pool.end();
