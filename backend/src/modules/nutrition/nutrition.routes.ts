@@ -24,6 +24,8 @@ import {
 import { computeEnergyTarget, setEnergyOverride } from './energy.service';
 import * as service from './nutrition.service';
 import * as templates from './templates.service';
+import { requireQuota } from '../quotas/quotas.middleware';
+import { consumeQuota } from '../quotas/quotas.service';
 import { recognizeMeal } from './recognition.service';
 import * as water from './water.service';
 
@@ -118,6 +120,7 @@ const recognizeJsonSchema = z.object({
 
 nutritionRouter.post(
   '/recognize',
+  requireQuota('photo_recognition'),
   express.raw({ type: IMAGE_TYPES, limit: '8mb' }),
   wrap(async (req, res) => {
     const contentType = req.headers['content-type']?.split(';')[0];
@@ -139,7 +142,9 @@ nutritionRouter.post(
     if (image.length === 0) throw new AppError(400, 'empty_image', 'A imagem chegou vazia. Tire a foto novamente.');
     if (image.length > MAX_IMAGE_BYTES) throw new AppError(413, 'image_too_large', 'Imagem muito grande (máx. 8 MB)');
     console.log(`[recognize] ${mime} ${image.length} bytes${hints ? `, com ingredientes (${hints.length} caracteres)` : ''}`);
-    res.json(await recognizeMeal(image, mime, hints));
+    const result = await recognizeMeal(image, mime, hints);
+    await consumeQuota(req.auth!.sub, 'photo_recognition'); // só depois do sucesso da IA
+    res.json(result);
   }),
 );
 

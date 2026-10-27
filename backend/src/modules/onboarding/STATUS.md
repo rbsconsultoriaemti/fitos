@@ -7,7 +7,7 @@
 ## Fluxo
 1. O app grava cada etapa com `PUT /profile` (campos do perfil + `onboarding: { step, answers }`). As respostas somam-se em `profiles.onboarding`; `step` é a etapa de retomada.
 2. `GET /profile` devolve `onboarding { step, answers, completedAt }` e `onboardingNeeded`: verdadeiro enquanto não concluído e (faltam nascimento/sexo/altura/peso **ou** o questionário já foi iniciado). Quem preencheu o perfil pela aba Perfil sem iniciar o questionário não é interrompido.
-3. `POST /onboarding/complete` (login): o corpo é opcional (mesmo formato do `PUT /profile` + `onboarding.answers`; o app manda tudo aqui) e é gravado antes. Depois lê o perfil, calcula a nutrição, monta o contexto de alimentos, chama a Claude API, grava tudo numa transação e marca `onboarding_completed_at`. Resposta: `{ planId, title, summary, days, nutrition, nutritionApplied, mealPlan, defaultsUsed }`. Limite de 1 geração por usuário a cada 60 s (429).
+3. `POST /onboarding/complete` (login): o corpo é opcional (mesmo formato do `PUT /profile` + `onboarding.answers`; o app manda tudo aqui) e é gravado antes. Depois lê o perfil, calcula a nutrição, monta o contexto de alimentos, chama a Claude API, grava tudo numa transação e marca `onboarding_completed_at`. Resposta: `{ planId, title, summary, days, nutrition, nutritionApplied, mealPlan, defaultsUsed }`. Protegido pela cota `ai_workout_plan` (gratuito: 1 a cada 90 dias; pago: 1 a cada 7 dias; 429 `quota_exceeded` com `resetsAt`). A cota é consumida dentro da transação que grava o plano, então falha da IA/422 não gasta cota. O limite provisório em memória (1/60 s) foi removido; fica só a trava de uma requisição por vez por usuário.
    - Dados biométricos (nascimento, sexo, altura, peso) são obrigatórios (400 `onboarding_incomplete` com `details.missing`). Qualquer outra resposta ausente recebe valor padrão (objetivo manter, 3 dias, 60 min, academia, musculação, 4 refeições…), listado em `defaultsUsed`, no log (WARN) e no prompt.
    - Resposta da IA fora do formato (ou cortada por `max_tokens`), depois de 2 tentativas: **422 `ai_invalid_response`** com `details.issues` (campo + problema). Nada é gravado.
 
@@ -29,4 +29,4 @@
 
 ## Pendências
 - Chamar a Claude API de verdade (definir `ANTHROPIC_API_KEY` no `.env` da VPS) e revisar a qualidade dos planos.
-- Sem rate limit global/Redis: o limite de 60 s é em memória (um processo).
+- A trava de requisição simultânea (`quotas.middleware.ts`) é em memória (um processo); com mais de uma instância da API, migrar para Redis/advisory lock.

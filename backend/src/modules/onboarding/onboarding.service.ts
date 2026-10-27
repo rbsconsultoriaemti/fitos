@@ -3,16 +3,13 @@ import { AppError } from '../../shared/errors';
 import { insertMeals } from '../nutrition/nutrition.service';
 import type { UpdateProfileInput } from '../profile/profile.schemas';
 import { updateProfile } from '../profile/profile.service';
+import { consumeQuota } from '../quotas/quotas.service';
 import { insertPlanContent } from '../workout/workout.service';
 import { loadFoodContext } from './food-context';
 import { computeNutritionTargets } from './nutrition-targets';
 import { completeAnswersSchema } from './onboarding.schemas';
 import { createLogger } from './onboarding.log';
 import { generatePlans } from './plan-generator';
-
-// Cada geração custa uma chamada à Claude API: no máximo uma por usuário a cada 60 s (e nunca duas ao mesmo tempo).
-const COOLDOWN_MS = 60_000;
-const lastStart = new Map<string, number>();
 
 const ageOf = (birthDate: string) => {
   const [y, m, d] = birthDate.split('-').map(Number);
@@ -71,13 +68,6 @@ export async function completeOnboarding(userId: string, body?: UpdateProfileInp
     defaultsUsed.push('raceType');
   }
   if (defaultsUsed.length > 0) log.warn('dados ausentes; valores padrão usados', defaultsUsed);
-
-  const now = Date.now();
-  if (now - (lastStart.get(userId) ?? 0) < COOLDOWN_MS) {
-    log.warn('geração recusada: limite de 1 por minuto');
-    throw new AppError(429, 'too_many_requests', 'Aguarde um minuto antes de gerar o plano novamente');
-  }
-  lastStart.set(userId, now);
 
   try {
     const age = ageOf(r.birth_date);
@@ -146,6 +136,8 @@ export async function completeOnboarding(userId: string, body?: UpdateProfileInp
         log.warn('já existe plano alimentar ativo de outra origem; metas e plano alimentar da IA não foram gravados');
       }
       await client.query(`UPDATE profiles SET onboarding_completed_at = now(), onboarding_step = 7 WHERE user_id = $1`, [userId]);
+      // Consome a cota na mesma transação do plano: só conta se a geração deu certo e foi gravada.
+      await consumeQuota(userId, 'ai_workout_plan', plan[0].id, client);
       await client.query('COMMIT');
       log.info('onboarding concluído', { workoutPlanId: plan[0].id, dietPlanId, nutritionApplied });
 
@@ -166,8 +158,6 @@ export async function completeOnboarding(userId: string, body?: UpdateProfileInp
       client.release();
     }
   } catch (err) {
-    // Falha não deve prender o usuário num minuto de espera.
-    lastStart.delete(userId);
     if (err instanceof AppError) log.error(`falha: ${err.status} ${err.code}`, err.details ?? err.message);
     else log.error('falha inesperada', { message: (err as Error).message, stack: (err as Error).stack });
     throw err;

@@ -182,6 +182,8 @@ async function main() {
       check(still.body.onboardingNeeded === true, 'após falha o onboarding continua pendente (nada foi gravado)');
       const plans = await call('/workout/plans?status=active', {}, token);
       check(plans.body.length === 0, 'após falha nenhum plano foi criado', plans.body);
+      const q0 = await call('/quotas', {}, token);
+      check(q0.body?.ai_workout_plan?.used === 0, 'falha da IA (422) não consome a cota de plano de treino', q0.body);
     }
 
     // 4) conclusão: o app manda tudo no corpo do POST
@@ -191,6 +193,10 @@ async function main() {
     check(done.status === 201, `POST /onboarding/complete (${((Date.now() - started) / 1000).toFixed(1)} s)`, done.body);
     if (done.status !== 201) return;
     const r = done.body;
+    const q1 = await call('/quotas', {}, token);
+    check(q1.body?.ai_workout_plan?.used === 1 && q1.body.ai_workout_plan.remaining === 0, 'sucesso consome a cota de plano de treino (1 de 1)', q1.body);
+    const again = await call('/onboarding/complete', { method: 'POST', body: fullPayload(form) }, token);
+    check(again.status === 429 && again.body?.error === 'quota_exceeded' && typeof again.body?.resetsAt === 'string', 'segunda geração => 429 quota_exceeded com resetsAt', again.body);
 
     console.log('\n═════════ NUTRIÇÃO ═════════');
     const n = r.nutrition;

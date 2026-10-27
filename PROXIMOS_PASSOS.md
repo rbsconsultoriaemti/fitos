@@ -26,17 +26,18 @@ Feito (detalhes nos STATUS.md de cada módulo):
 Limites: **gratuito** = 10 fotos/mês + 1 plano de treino por IA a cada 3 meses; **pago (R$ 19/mês ou R$ 175/ano)** = 20 fotos/dia + novo plano de treino toda semana.
 
 1. [ ] **Trocar o modelo do reconhecimento de foto** de `claude-opus-4-5` para `claude-haiku-5-5` (`ANTHROPIC_MODEL` no ai-service; custo de ~R$ 0,20 para ~R$ 0,02 por foto). Antes de fixar: comparar a qualidade das estimativas de gramas com fotos reais de pratos brasileiros
-2. [ ] **Controle de cotas por plano**
+2. [~] **Controle de cotas por plano** — backend FEITO (migration 018, `quotas.service.ts`, `GET /quotas`, 429 `quota_exceeded`, `npm run test:quotas`); falta o app (contador e aviso)
    - Tabela `usage_quotas` (migration) para rastrear o uso por usuário, recurso (`photo_recognition`, `ai_workout_plan`) e período
    - Middleware que checa a cota ANTES de `POST /nutrition/recognize` e `POST /onboarding/complete` e só consome depois do sucesso (falha da IA não gasta cota)
    - Erro **429** com mensagem amigável e dados do limite (usado, limite, quando renova)
    - App: mostrar quantas fotos restam (no mês no básico, no dia no pago) na tela da foto; avisar quando a geração de plano ainda não está liberada
    - **Janela corrente (decidido)**: períodos contados para trás a partir de agora, não por calendário. Plano de treino: próxima geração liberada em último uso + 3 meses (gratuito) ou + 7 dias (pago). Fotos: usos dos últimos 30 dias (gratuito) ou 24 h (pago); a cota volta quando o uso mais antigo sai da janela. A resposta 429 e o contador do app devem dizer QUANDO libera (data/hora do vencimento do uso mais antigo). Consulta simples sobre `usage_quotas.used_at`, sem job de reset
 3. [ ] **Verificar o plano ativo via RevenueCat** antes de liberar a cota paga (webhook + consulta à API; guardar o estado em `subscriptions`; sem confirmação vale a cota do básico)
-4. [ ] Substituir o limite provisório em memória do onboarding (1 geração/60 s) por essas cotas (Redis ou banco)
+4. [x] Limite provisório em memória do onboarding substituído pelas cotas (banco)
 
 ## Backlog técnico
-- Rate limit por usuário em `/nutrition/recognize` e `/onboarding/complete` (hoje só em memória no onboarding; ideal Redis)
+- Trava de requisição simultânea por usuário (`quotas.middleware.ts`) é em memória; migrar para Redis ao rodar mais de uma instância da API
+- Fora das cotas do aluno: `POST /trainer/students/:id/suggest-plan` (cooldown próprio de 30 s do professor, em memória)
 - Foto no S3 (`food_logs.photo_url` fica nulo)
 - Editar a quantidade de item já registrado; histórico de peso e gráficos no Progresso; histórico/gráfico de água
 - Notificações: horários das refeições seguem o plano alimentar; lembretes de água param se o app ficar 3 dias sem abrir (considerar push remoto)

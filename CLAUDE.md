@@ -81,7 +81,7 @@ Roles no banco: `student | trainer | running_coach | cycling_coach | nutritionis
 - **Janela corrente (decidido), não período de calendário:** o período é contado para trás a partir de agora. Plano de treino por IA: só libera de novo 3 meses (gratuito) ou 7 dias (pago) depois do último uso. Fotos: conta o que foi usado nos últimos 30 dias (gratuito) ou nas últimas 24 h (pago); o limite volta a liberar quando o uso mais antigo da janela completa 30 dias / 24 h. Assim ninguém ganha cota extra por usar no fim de um mês ou de uma semana.
 - Estourou o limite → API responde **429** com mensagem amigável (o app mostra quantas fotos restam: no mês para o básico, no dia para o pago).
 - O plano pago só vale com assinatura ativa confirmada no RevenueCat; sem confirmação, a cota é a do básico.
-- Uso rastreado na tabela `usage_quotas` (a criar, ver PROXIMOS_PASSOS.md). Enquanto não existir, só há um limite provisório em memória no onboarding (1 geração/60 s) e nenhum no reconhecimento de foto.
+- Uso rastreado na tabela `usage_quotas` (migration 018; `backend/src/modules/quotas/`), com janela deslizante. Plano pago = `subscriptions` premium com status `active` e não vencida (a confirmação via RevenueCat ainda é pendência: ver PROXIMOS_PASSOS.md). `GET /quotas` devolve o status das duas cotas.
 - Modelo do reconhecimento de foto: migrar de `claude-opus-4-5` para `claude-haiku-5-5` (custo ~R$ 0,20 → ~R$ 0,02 por foto) para sustentar essas cotas.
 
 ---

@@ -57,7 +57,7 @@ Log de comida (estilo Samsung Health)
   - Nutricionista só vê pacientes com vínculo ativo
 
 Reconhecimento por foto
-- `POST /recognize` — JSON `{imageBase64, mimeType, hints?}` (hints = ingredientes opcionais, até 200 caracteres, repassados ao ai-service como campo `hints` e adicionados ao prompt; formato do app; blob via fetch chegava vazio no React Native) ou bytes crus (`Content-Type: image/jpeg|png|webp`), até 8 MB. Teste: `npm run test:recognize`. Backend → ai-service (`X-Service-Token`) → Claude Vision. Devolve, para cada alimento reconhecido, `recognized {name, estimatedGrams, confidence, estimated {kcal, proteinG, carbG, fatG}}` (macros da porção estimados pelo Claude, fallback quando a TACO não casa) + até 5 `candidates` da base. **Não registra nada**: o aluno confirma/corrige e chama `POST /logs` com `recognitionSource: 'photo_ai'`.
+- `POST /recognize` — JSON `{imageBase64, mimeType, hints?}` (hints = ingredientes opcionais, até 200 caracteres, repassados ao ai-service como campo `hints` e adicionados ao prompt; formato do app; blob via fetch chegava vazio no React Native) ou bytes crus (`Content-Type: image/jpeg|png|webp`), até 8 MB. Teste: `npm run test:recognize`. Backend → ai-service (`X-Service-Token`) → Claude Vision. Protegido por cota (`requireQuota('photo_recognition')`). Devolve, para cada alimento reconhecido, `recognized {name, estimatedGrams, confidence, estimated {kcal, proteinG, carbG, fatG}}` (macros da porção estimados pelo Claude, fallback quando a TACO não casa) + até 5 `candidates` da base. **Não registra nada**: o aluno confirma/corrige e chama `POST /logs` com `recognitionSource: 'photo_ai'`.
 - Config: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`. Sem token → 503 `ai_unavailable`.
 
 ## Porções caseiras (`foods.portions`)
@@ -75,7 +75,7 @@ Reconhecimento por foto
 ## Pendente
 - **Teste real com o Claude** (precisa de `ANTHROPIC_API_KEY`): só testei com stub; ver `ai-service/STATUS.md`
 - Armazenar a foto no S3 (`food_logs.photo_url` existe mas fica nulo; sem credenciais AWS ainda)
-- Rate limiting / cota por usuário em `/recognize` (cada chamada custa dinheiro) — ainda NÃO existe
+- Cota por usuário em `/recognize`: implementada (módulo `quotas`, 10 fotos/30 dias no gratuito, 20/24 h no pago; 429 `quota_exceeded`). Consome só depois do sucesso da IA. Falta o contador no app e o rate limit global (Redis)
 - Colisão de nome de cardápio: só "Maria mole" repete (duplicada na própria TACO); revisar com nutricionista as regras de `formatFoodName` (ex.: "cru" mantido em carnes/arroz/feijão de propósito)
 - Água: sem tela de histórico/gráfico; meta fixa em 2 L/2,5 L (poderia usar peso e treino); desfazer registro já enviado exige internet
 - Agendar o job noturno (Railway cron) e cobrir mais de um dia / usuários sem log

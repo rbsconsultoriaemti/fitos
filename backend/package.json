@@ -24,6 +24,7 @@
     "test:energy": "tsx scripts/energy-e2e.ts",
     "test:trainer": "tsx scripts/trainer-e2e.ts",
     "test:recognize": "tsx scripts/recognize-e2e.ts",
+    "test:quotas": "tsx scripts/quotas-e2e.ts",
     "test:onboarding": "tsx --tsconfig scripts/tsconfig.e2e.json scripts/onboarding-e2e.ts"
   },
   "dependencies": {

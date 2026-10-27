@@ -7,6 +7,7 @@ import { authRouter } from './modules/auth/auth.routes';
 import { invitesRouter } from './modules/auth/invites.routes';
 import { nutritionRouter } from './modules/nutrition/nutrition.routes';
 import { onboardingRouter } from './modules/onboarding/onboarding.routes';
+import { quotasRouter } from './modules/quotas/quotas.routes';
 import { profileRouter } from './modules/profile/profile.routes';
 import { trainerRouter } from './modules/trainer/trainer.routes';
 import { workoutRouter } from './modules/workout/workout.routes';
@@ -54,6 +55,7 @@ export function createApp() {
   app.use('/profile', profileRouter);
   app.use('/onboarding', onboardingRouter);
   app.use('/trainer', trainerRouter);
+  app.use('/quotas', quotasRouter);
   // Próximos módulos entram aqui conforme forem construídos.
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
@@ -62,7 +64,7 @@ export function createApp() {
       return;
     }
     if (err instanceof AppError) {
-      res.status(err.status).json({ error: err.code, message: err.message, ...(err.details !== undefined ? { details: err.details } : {}) });
+      res.status(err.status).json({ error: err.code, message: err.message, ...(err.details !== undefined ? { details: err.details } : {}), ...err.extra });
       return;
     }
     console.error(err);
