@@ -53,4 +53,4 @@ Produção: containers Docker (API e ai-service) atrás do Traefik numa VPS; ver
 
 ## Migrations
 
-Ficam em `backend/src/database/migrations/` (SQL puro, via `node-pg-migrate`, seções `-- Up Migration` / `-- Down Migration`). São 18 (de `001_create-users` a `018_usage-quotas`): usuários, perfis, assinaturas, convites, vínculos profissional→aluno, musculação, nutrição, onboarding, água e cotas. A lista completa está na pasta.
+Ficam em `backend/src/database/migrations/` (SQL puro, via `node-pg-migrate`, seções `-- Up Migration` / `-- Down Migration`). São 19 (de `001_create-users` a `019_food-preferences`): usuários, perfis, assinaturas, convites, vínculos profissional→aluno, musculação, nutrição, onboarding, água, cotas e preferências alimentares. A lista completa está na pasta.

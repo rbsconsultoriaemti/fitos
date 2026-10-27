@@ -1,4 +1,5 @@
 import { PoolClient } from 'pg';
+import { loadPreferences, sortByPreference } from '../preferences/preferences.service';
 import { pool } from '../../database/pool';
 import { config } from '../../shared/config';
 import { AppError } from '../../shared/errors';
@@ -78,14 +79,16 @@ function rankByState<T extends { name: string; source: string; category: string 
  * Busca fuzzy: ignora acento e caixa, aceita as palavras em qualquer ordem e tolera erro de digitação
  * (trigram). Cada palavra precisa aparecer no nome ou ser parecida o bastante com algum trecho dele.
  */
-export async function listFoods(filter: { q?: string; category?: string }) {
+export async function listFoods(filter: { q?: string; category?: string }, userId?: string) {
   const category = filter.category ?? null;
+  // Preferências do questionário: "gosto" sobe, "não gosto" desce (nunca some). Sem preferências, nada muda.
+  const prefs = userId ? await loadPreferences(userId) : null;
   if (!filter.q) {
     const { rows } = await pool.query(
       `SELECT ${FOOD_COLS} FROM foods WHERE ($1::text IS NULL OR lower(category) = lower($1)) ORDER BY name LIMIT 50`,
       [category],
     );
-    return rows.map(foodOut);
+    return sortByPreference(rows, prefs, (r) => r.name as string).map(foodOut);
   }
 
   const { rows } = await pool.query(
@@ -108,7 +111,7 @@ export async function listFoods(filter: { q?: string; category?: string }) {
      LIMIT 200`,
     [filter.q, category],
   );
-  return rankByState(rows, filter.q).slice(0, 50).map(foodOut);
+  return sortByPreference(rankByState(rows, filter.q), prefs, (r) => r.name).slice(0, 50).map(foodOut);
 }
 
 export async function getFood(id: string) {

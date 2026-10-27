@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, BackHandler, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { CatalogStatus, FoodPreferencesPicker, putFoodPreferences, savedPrefs, useFoodCatalog } from '@/components/food-preferences';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Card, Chip, ErrorText, Input, ProgressBar, T } from '@/components/ui';
@@ -112,6 +113,14 @@ export default function Onboarding() {
   /** Guarda o progresso: sempre no aparelho, e no servidor quando houver rede (falha de rede não trava o fluxo). */
   async function persist(fromStep: number, toStep: number) {
     await saveDraft({ step: toStep, form });
+    if (fromStep === 6) {
+      // Offline não bloqueia: as escolhas ficam no rascunho e são reenviadas antes de gerar o plano.
+      try {
+        await putFoodPreferences(form.foodPrefs ?? {});
+      } catch (err) {
+        if (!isOffline(err)) throw err;
+      }
+    }
     const body = stepPayload(fromStep, form);
     try {
       const saved = await api<Profile>('/profile', { method: 'PUT', body });
@@ -136,6 +145,11 @@ export default function Onboarding() {
     try {
       if (skip) await saveDraft({ step: step + 1, form });
       else await persist(step, step + 1);
+      if (skip && step === 6) {
+        // Pular a etapa de preferências salva vazio (tudo indiferente).
+        set('foodPrefs', {});
+        await putFoodPreferences({}).catch(() => undefined);
+      }
       if (skip) {
         // Pular não grava respostas, mas registra que a pessoa passou da etapa.
         await api('/profile', { method: 'PUT', body: { onboarding: { step: Math.min(step + 1, LAST_STEP), answers: {} } } }).catch(() => undefined);
@@ -165,6 +179,8 @@ export default function Onboarding() {
     }
     setGenerating(true);
     try {
+      // A IA lê as preferências do servidor: garante que a última versão chegou (só se a etapa foi respondida neste aparelho).
+      if (Object.keys(form.foodPrefs ?? {}).length > 0) await putFoodPreferences(form.foodPrefs ?? {});
       // Tudo vai junto no POST (o servidor grava no perfil e só então lê): nada depende de etapas anteriores terem chegado.
       const body = fullPayload(form);
       if (__DEV__) console.log('[onboarding] POST /onboarding/complete payload:', JSON.stringify(body, null, 2));
@@ -217,8 +233,9 @@ export default function Onboarding() {
         {step === 3 ? <StepLevel form={form} set={set} /> : null}
         {step === 4 ? <StepRoutine form={form} set={set} /> : null}
         {step === 5 ? <StepFood form={form} set={set} /> : null}
-        {step === 6 ? <StepHealth form={form} set={set} /> : null}
-        {step === 7 ? <StepSummary form={form} onEdit={goTo} /> : null}
+        {step === 6 ? <StepPreferences form={form} set={set} /> : null}
+        {step === 7 ? <StepHealth form={form} set={set} /> : null}
+        {step === 8 ? <StepSummary form={form} onEdit={goTo} /> : null}
 
         <ErrorText>{error}</ErrorText>
 
@@ -388,6 +405,27 @@ function StepRoutine({ form, set }: StepProps) {
   );
 }
 
+function StepPreferences({ form, set }: StepProps) {
+  const { catalog, loading, error, reload } = useFoodCatalog();
+  const hydrated = useRef(false);
+
+  // Traz o que já está salvo no servidor, mas não sobrescreve escolhas feitas aqui (rascunho local vence).
+  useEffect(() => {
+    if (catalog && !hydrated.current) {
+      hydrated.current = true;
+      if (Object.keys(form.foodPrefs ?? {}).length === 0) set('foodPrefs', savedPrefs(catalog));
+    }
+  }, [catalog, form.foodPrefs, set]);
+
+  return (
+    <>
+      <Heading title="Do que você gosta?" subtitle="Etapa opcional: a IA usa suas escolhas para montar dietas melhores, e o app mostra primeiro os alimentos de que você gosta." />
+      <CatalogStatus loading={loading} error={error} onRetry={reload} />
+      {catalog ? <FoodPreferencesPicker catalog={catalog} value={form.foodPrefs ?? {}} onChange={(v) => set('foodPrefs', v)} /> : null}
+    </>
+  );
+}
+
 function StepFood({ form, set }: StepProps) {
   return (
     <>
@@ -504,6 +542,14 @@ function StepSummary({ form, onEdit }: { form: OnboardingForm; onEdit: (step: nu
     },
     {
       step: 6,
+      title: 'Preferências alimentares',
+      rows: [
+        ['Gosto', `${Object.values(form.foodPrefs ?? {}).filter((s) => s === 'like').length} alimentos`],
+        ['Não gosto', `${Object.values(form.foodPrefs ?? {}).filter((s) => s === 'dislike').length} alimentos`],
+      ],
+    },
+    {
+      step: 7,
       title: 'Saúde',
       rows: [
         ['Lesões ou limitações', form.injuries.trim() || 'Nenhuma informada'],

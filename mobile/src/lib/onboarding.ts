@@ -76,11 +76,12 @@ export const STEP_TITLES = [
   'Nível de experiência',
   'Rotina de treino',
   'Alimentação',
+  'Preferências alimentares',
   'Saúde',
   'Resumo',
 ] as const;
 export const LAST_STEP = STEP_TITLES.length;
-export const OPTIONAL_STEPS: readonly number[] = [5, 6];
+export const OPTIONAL_STEPS: readonly number[] = [5, 6, 7];
 
 // ---------- formulário ----------
 
@@ -104,6 +105,8 @@ export interface OnboardingForm {
   favoriteFoods: string; // separados por vírgula
   injuries: string;
   followUp: FollowUp[];
+  /** Preferências alimentares (etapa 6): só gosto / não gosto; ausente = indiferente. Vão para PUT /preferences/foods. */
+  foodPrefs: Record<string, 'like' | 'dislike'>;
 }
 
 export const emptyForm = (): OnboardingForm => ({
@@ -126,6 +129,7 @@ export const emptyForm = (): OnboardingForm => ({
   favoriteFoods: '',
   injuries: '',
   followUp: [],
+  foodPrefs: {},
 });
 
 const show = (n: number | null) => (n === null ? '' : String(n).replace('.', ','));
@@ -183,7 +187,7 @@ export function formFromProfile(p: Profile): OnboardingForm {
 
 // ---------- validação por etapa ----------
 
-/** Mensagem de erro da etapa, ou null se pode avançar. As etapas 5 e 6 nunca bloqueiam. */
+/** Mensagem de erro da etapa, ou null se pode avançar. As etapas 5, 6 e 7 nunca bloqueiam. */
 export function validateStep(step: number, f: OnboardingForm): string | null {
   switch (step) {
     case 1: {
@@ -278,6 +282,9 @@ export function stepPayload(step: number, f: OnboardingForm): Record<string, unk
       return { restrictions, onboarding: { step: resume, answers } };
     }
     case 6:
+      // Preferências alimentares não vão no PUT /profile: têm endpoint próprio (PUT /preferences/foods).
+      return { onboarding: { step: resume, answers: {} } };
+    case 7:
       return { onboarding: { step: resume, answers: { injuries: f.injuries.trim(), followUp: f.followUp } } };
     default:
       return { onboarding: { step: LAST_STEP, answers: {} } };
@@ -288,7 +295,7 @@ export function stepPayload(step: number, f: OnboardingForm): Record<string, unk
 export function fullPayload(f: OnboardingForm): Record<string, unknown> {
   const merged: Record<string, unknown> = {};
   const answers: Record<string, unknown> = {};
-  for (let s = 1; s <= 6; s++) {
+  for (let s = 1; s <= 7; s++) {
     const { onboarding, ...rest } = stepPayload(s, f) as { onboarding: { answers: Record<string, unknown> } } & Record<string, unknown>;
     Object.assign(merged, rest);
     Object.assign(answers, onboarding.answers);

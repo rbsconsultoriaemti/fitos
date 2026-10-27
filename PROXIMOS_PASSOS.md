@@ -15,12 +15,13 @@ Feito (detalhes nos STATUS.md de cada módulo):
 3e. ~~Deploy na VPS: API e ai-service em containers Docker, roteados pelo Traefik, PostgreSQL no host (PM2 e Nginx desativados; ver DEPLOY_VPS.md)~~
 3f. ~~Painel do professor (backend `/trainer/*` + telas + prescrição manual/por IA)~~ — falta testar no aparelho e subir na VPS
 3g. Cotas por plano: backend pronto (migration 018); app com contador de fotos (escrito, `tsc` OK, sem teste no aparelho)
+3i. Preferências alimentares (gosto / não gosto / indiferente): backend (migration 019, `preferences/`, `test:preferences`), prompt da IA, ordenação da busca e etapa 6 do onboarding + Perfil > Minhas preferências — escrito e testado no backend; app sem teste no aparelho; IA real não verificada
 3h. Visual estilo iOS (tema azul, títulos grandes, divisores) e safe area nas telas de pilha — aplicado no código, `tsc` OK, pendente de verificação no aparelho
 
 ## Fazer agora (precisa de você)
-- [ ] VPS (fluxo único em DEPLOY_VPS.md): `cd /var/www/fitos && git pull`; `migrate:up` com a `DATABASE_URL` do DEPLOY_VPS.md para aplicar o que faltar até a **018** (quais já rodaram na VPS: não verificado); `docker compose up -d --build` (reconstrói API e ai-service, que precisa do código sem `temperature` e com `hints`). Sem `pm2`, `npm ci` ou `chown` no host
+- [ ] VPS (fluxo único em DEPLOY_VPS.md): `cd /var/www/fitos && git pull`; `migrate:up` com a `DATABASE_URL` do DEPLOY_VPS.md para aplicar o que faltar até a **019** (quais já rodaram na VPS: não verificado); `docker compose up -d --build` (reconstrói API e ai-service, que precisa do código sem `temperature` e com `hints`). Sem `pm2`, `npm ci` ou `chown` no host
 - [ ] APK novo release gerado localmente (`cd C:\fx\mobile\android; .\gradlew.bat assembleRelease`): módulos nativos expo-camera, expo-image-picker e **expo-notifications**, telas novas, tema azul e splash/cor de notificação novas. Sem isso o app instalado mostra nomes antigos e não agenda lembretes
-- [ ] Testar em aparelho: foto → calorias (editar, adicionar, contador de cotas), código de barras, widget de água offline/online, notificação de teste (Configurações > Notificações), onboarding completo, painel do professor, e o visual novo (botão "Analisar foto" acima da barra do Android, títulos grandes, divisores)
+- [ ] Testar em aparelho: foto → calorias (editar, adicionar, contador de cotas), código de barras, widget de água offline/online, notificação de teste (Configurações > Notificações), onboarding completo (agora com a etapa de preferências alimentares) e Perfil > Minhas preferências, painel do professor, e o visual novo (botão "Analisar foto" acima da barra do Android, títulos grandes, divisores)
 - [ ] Primeira geração real com a Claude (onboarding e foto): conferir qualidade do prompt (`onboarding/plan-generator.ts`, `ai-service/app/vision.py`), custo e latência
 - [ ] Limpar exercícios de teste do banco local ("Supino 562029", "Agachamento 562029")
 
@@ -41,6 +42,7 @@ Limites: **gratuito** = 10 fotos a cada 30 dias + 1 plano de treino por IA a cad
 ## Backlog técnico
 - Trava de requisição simultânea por usuário (`quotas.middleware.ts`) é em memória; migrar para Redis ao rodar mais de uma instância da API
 - Fora das cotas do aluno: `POST /trainer/students/:id/suggest-plan` (cooldown próprio de 30 s do professor, em memória)
+- Preferências alimentares: a lista "Usados recentemente" da busca do app é local e não segue as preferências; avaliar casar os 27 itens sem TACO com o Open Food Facts; conferir com a Claude real se a IA respeita as listas
 - Foto no S3 (`food_logs.photo_url` fica nulo)
 - Editar a quantidade de item já registrado; histórico de peso e gráficos no Progresso; histórico/gráfico de água
 - Notificações: horários das refeições seguem o plano alimentar; lembretes de água param se o app ficar 3 dias sem abrir (considerar push remoto)

@@ -3,6 +3,7 @@ import { AppError } from '../../shared/errors';
 import { insertMeals } from '../nutrition/nutrition.service';
 import type { UpdateProfileInput } from '../profile/profile.schemas';
 import { updateProfile } from '../profile/profile.service';
+import { loadPreferences } from '../preferences/preferences.service';
 import { consumeQuota } from '../quotas/quotas.service';
 import { insertPlanContent } from '../workout/workout.service';
 import { loadFoodContext } from './food-context';
@@ -91,8 +92,11 @@ export async function completeOnboarding(userId: string, body?: UpdateProfileInp
       base: foods.staples.length,
     });
 
+    const preferences = await loadPreferences(userId);
+    log.info('preferências alimentares', { gosta: preferences.like.length, naoGosta: preferences.dislike.length });
+
     const generated = await generatePlans(
-      { age, sex: r.sex, weightKg, heightCm, level, answers: answers.data, nutrition, foods, defaultsUsed },
+      { age, sex: r.sex, weightKg, heightCm, level, answers: answers.data, nutrition, foods, preferences, defaultsUsed },
       log,
     );
 
@@ -135,7 +139,7 @@ export async function completeOnboarding(userId: string, body?: UpdateProfileInp
       } else {
         log.warn('já existe plano alimentar ativo de outra origem; metas e plano alimentar da IA não foram gravados');
       }
-      await client.query(`UPDATE profiles SET onboarding_completed_at = now(), onboarding_step = 7 WHERE user_id = $1`, [userId]);
+      await client.query(`UPDATE profiles SET onboarding_completed_at = now(), onboarding_step = 8 WHERE user_id = $1`, [userId]);
       // Consome a cota na mesma transação do plano: só conta se a geração deu certo e foi gravada.
       await consumeQuota(userId, 'ai_workout_plan', plan[0].id, client);
       await client.query('COMMIT');

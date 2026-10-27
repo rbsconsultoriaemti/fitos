@@ -39,7 +39,7 @@ nutritionRouter.use(requireAuth);
 nutritionRouter.get(
   '/foods',
   wrap(async (req, res) => {
-    res.json(await service.listFoods(listFoodsSchema.parse(req.query)));
+    res.json(await service.listFoods(listFoodsSchema.parse(req.query), req.auth!.sub));
   }),
 );
 nutritionRouter.get(
@@ -142,7 +142,7 @@ nutritionRouter.post(
     if (image.length === 0) throw new AppError(400, 'empty_image', 'A imagem chegou vazia. Tire a foto novamente.');
     if (image.length > MAX_IMAGE_BYTES) throw new AppError(413, 'image_too_large', 'Imagem muito grande (máx. 8 MB)');
     console.log(`[recognize] ${mime} ${image.length} bytes${hints ? `, com ingredientes (${hints.length} caracteres)` : ''}`);
-    const result = await recognizeMeal(image, mime, hints);
+    const result = await recognizeMeal(image, mime, hints, req.auth!.sub);
     await consumeQuota(req.auth!.sub, 'photo_recognition'); // só depois do sucesso da IA
     res.json(result);
   }),

@@ -14,13 +14,14 @@ import 'dotenv/config';
 import { execSync, spawn } from 'node:child_process';
 import http from 'node:http';
 import { Pool } from 'pg';
-import { fullPayload, parseFavorites, stepPayload, validateStep, emptyForm, type OnboardingForm } from '../../mobile/src/lib/onboarding';
+import { fullPayload, parseFavorites, stepPayload, validateStep, emptyForm, LAST_STEP, type OnboardingForm } from '../../mobile/src/lib/onboarding';
 
 const PORT = 3998;
 const MOCK_PORT = 4011;
 const API = `http://localhost:${PORT}`;
 const useReal = !!process.env.ANTHROPIC_API_KEY;
 let mockMode: 'good' | 'bad' | 'truncated' = 'good';
+let lastPrompt = '';
 
 // ---------- perfil de exemplo ----------
 const born = new Date();
@@ -82,6 +83,7 @@ const mock = http.createServer((req, res) => {
   req.on('data', (c) => (data += c));
   req.on('end', () => {
     const prompt = JSON.parse(data).messages[0].content as string;
+    lastPrompt = prompt;
     let input: unknown = mockPlan(prompt);
     if (mockMode === 'bad') input = { title: 'Sem dias', summary: '', days: 'nada', meals: [] };
     res.setHeader('content-type', 'application/json');
@@ -151,7 +153,7 @@ async function main() {
 
     // 2) etapas 1..6, exatamente como o app: valida, monta o payload e envia no PUT /profile
     console.log('\n— Etapas do questionário (PUT /profile) —');
-    for (let step = 1; step <= 6; step++) {
+    for (let step = 1; step <= LAST_STEP - 1; step++) {
       const problem = validateStep(step, form);
       check(problem === null, `etapa ${step}: validação do app`, problem);
       const body = stepPayload(step, form);
@@ -160,12 +162,17 @@ async function main() {
       const sent = Object.keys((body.onboarding as { answers: object }).answers);
       const lost = sent.filter((k) => !(k in (put.body?.onboarding?.answers ?? {})));
       check(lost.length === 0, `etapa ${step}: respostas gravadas (${sent.join(', ') || 'só perfil'})`, lost);
-      check(put.body?.onboarding?.step === Math.min(step + 1, 7), `etapa ${step}: retoma na etapa ${Math.min(step + 1, 7)}`, put.body?.onboarding?.step);
+      check(put.body?.onboarding?.step === Math.min(step + 1, LAST_STEP), `etapa ${step}: retoma na etapa ${Math.min(step + 1, LAST_STEP)}`, put.body?.onboarding?.step);
     }
     const saved = await call('/profile', {}, token);
     check(saved.body.weightKg === 80 && saved.body.heightCm === 175 && saved.body.sex === 'male', 'perfil: peso 80, altura 175, masculino');
     check(saved.body.fitnessLevel === 'intermediate' && saved.body.goal === 'Ganhar massa muscular', 'perfil: nível e objetivo');
     check(JSON.stringify(saved.body.onboarding.answers.favoriteFoods) === JSON.stringify(parseFavorites(form.favoriteFoods)), 'favoritos gravados', saved.body.onboarding.answers.favoriteFoods);
+
+    // 2b) preferências alimentares (etapa 6): o que a pessoa gosta e não gosta vai para o prompt da IA
+    console.log('— Preferências alimentares —');
+    const putPrefs = await call('/preferences/foods', { method: 'PUT', body: { likes: ['batata_doce', 'brocolis'], dislikes: ['sardinha', 'atum'] } }, token);
+    check(putPrefs.status === 200, 'PUT /preferences/foods', putPrefs.body);
 
     // 3) erros da IA: formato inválido e resposta truncada => 422 com detalhes
     if (!useReal) {
@@ -193,6 +200,11 @@ async function main() {
     check(done.status === 201, `POST /onboarding/complete (${((Date.now() - started) / 1000).toFixed(1)} s)`, done.body);
     if (done.status !== 201) return;
     const r = done.body;
+    check(/Gosta: [^\n]*Batata-doce[^\n]*Brócolis/.test(lastPrompt), 'prompt da IA traz a lista "Gosta"', lastPrompt.match(/Gosta:[^\n]*/)?.[0]);
+    check(/Não gosta \(não incluir\): Sardinha, Atum/.test(lastPrompt), 'prompt da IA traz a lista "Não gosta"', lastPrompt.match(/Não gosta[^\n]*/)?.[0]);
+    const foodSection = lastPrompt.split('CATÁLOGO DE ALIMENTOS')[1]?.split('CATÁLOGO DE EXERCÍCIOS')[0] ?? '';
+    check(!/Sardinha|Atum/.test(foodSection), 'alimentos de que a pessoa não gosta ficam fora do catálogo enviado à IA');
+    check(/♥gosta/.test(foodSection), 'alimentos de que a pessoa gosta vão marcados no catálogo');
     const q1 = await call('/quotas', {}, token);
     check(q1.body?.ai_workout_plan?.used === 1 && q1.body.ai_workout_plan.remaining === 0, 'sucesso consome a cota de plano de treino (1 de 1)', q1.body);
     const again = await call('/onboarding/complete', { method: 'POST', body: fullPayload(form) }, token);

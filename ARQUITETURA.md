@@ -4,7 +4,7 @@ Decisões técnicas detalhadas do FitOS. Resumo do que existe hoje no código (a
 
 ## Componentes
 - **Mobile** (`mobile/`): React Native + Expo (expo-router). Fala só com a API do backend. Tem modo offline para treino, água e registros de alimentos (filas locais; ver `mobile/STATUS.md`).
-- **Backend** (`backend/`): Node.js + TypeScript (Express), PostgreSQL. Módulos em `src/modules/` (auth, workout, nutrition, onboarding, profile, quotas, trainer). JWT de acesso + refresh token.
+- **Backend** (`backend/`): Node.js + TypeScript (Express), PostgreSQL. Módulos em `src/modules/` (auth, workout, nutrition, onboarding, preferences, profile, quotas, trainer). JWT de acesso + refresh token.
 - **ai-service** (`ai-service/`): FastAPI. Hoje só `POST /vision/food-recognition` (Claude Vision), protegido por `X-Service-Token`. O backend o chama; o app não.
 - **Claude API direto do backend**: geração do plano de treino e alimentar do onboarding e a sugestão de treino do professor (`onboarding/claude.ts`, `plan-generator.ts`).
 

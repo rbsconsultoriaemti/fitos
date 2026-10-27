@@ -2,7 +2,7 @@
 
 - Estado: implementado e testado ponta a ponta com uma API Anthropic simulada (servidor falso). **A Claude API real ainda não foi chamada** (sem chave no ambiente de desenvolvimento).
 - Teste: `npm run test:onboarding` (em `backend/scripts/`) cadastra um usuário, preenche as 6 etapas com a lógica do app, testa respostas inválidas da IA (422) e a conclusão, imprime treino + plano alimentar e apaga o usuário. Usa a Claude real se houver `ANTHROPIC_API_KEY`; senão, um servidor Anthropic simulado (conteúdo montado pelo script, não por IA).
-- Migration: `...015_onboarding.sql` (`profiles.onboarding` jsonb, `onboarding_step`, `onboarding_completed_at`)
+- Migration: `...015_onboarding.sql` (`profiles.onboarding` jsonb, `onboarding_step`, `onboarding_completed_at`). O questionário agora tem 8 etapas (a 6 é "Preferências alimentares"; migration 019 amplia `onboarding_step` para 1..8 e `onboarding.schemas.ts` aceita `step` até 8); ao concluir grava `onboarding_step = 8`
 
 ## Fluxo
 1. O app grava cada etapa com `PUT /profile` (campos do perfil + `onboarding: { step, answers }`). As respostas somam-se em `profiles.onboarding`; `step` é a etapa de retomada.
@@ -18,6 +18,7 @@
 ## Geração (Claude API direto, sem passar pelo ai-service)
 - `claude.ts`: `POST {ANTHROPIC_BASE_URL}/v1/messages` com `tool_choice` forçado (JSON estruturado). Variáveis: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (padrão `claude-opus-4-5`), `ANTHROPIC_BASE_URL` (só testes). Timeout 100 s.
 - `plan-generator.ts`: o prompt leva perfil (peso, altura, idade, sexo, IMC), objetivo, nível, dias/tempo/local/modalidades, restrições, lesões, meta calórica e macros, **alimentos favoritos com valores da TACO**, **os 10 alimentos mais registrados** e um catálogo numerado de alimentos e de exercícios; a IA devolve `ref`/`foodRef` (nunca UUID). A resposta é validada campo a campo (zod) e depois item a item (referências inexistentes e dias repetidos são descartados com WARN); 2 tentativas.
+- Preferências alimentares (módulo `preferences/`, ver o STATUS dele): `completeOnboarding` lê `food_preferences` e o prompt ganha a seção "PREFERÊNCIAS ALIMENTARES" (Gosta / Não gosta (não incluir)) e uma regra no SYSTEM. Alimentos que casam com "não gosta" ficam fora do catálogo enviado à IA; um alimento da TACO por item "gosta" entra marcado `♥gosta`. Modelo e `temperature` inalterados. Testado só com a API simulada (`npm run test:onboarding` confere o prompt); com a Claude real: não verificado
 - `food-context.ts`: favoritos (texto livre da etapa 5) são casados com a TACO (apelidos para arroz, feijão, frango, ovo, batata doce…, senão busca por palavras preferindo versão cozida/grelhada); base de ~30 alimentos comuns para a IA completar.
 - Plano alimentar de um dia: a IA escolhe alimentos e gramas; o servidor **reescala as quantidades para a soma bater com a meta de kcal** (a IA erra a conta) e grava em `diet_plans`/`meals`/`meal_foods`. Os macros do dia saem do que os alimentos realmente têm, então podem divergir da meta de macros.
 - Plano gravado com `source='ai'`, `status='active'` (o aluno é dono e pode editar; planos `ai` anteriores e ativos são arquivados). `updatePlan`/`archivePlan` aceitam `ai` para o dono.

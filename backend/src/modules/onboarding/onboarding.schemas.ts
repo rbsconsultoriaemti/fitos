@@ -56,7 +56,7 @@ export type OnboardingAnswers = z.infer<typeof completeAnswersSchema>;
 
 // Cada etapa salva só o que respondeu; `step` é a etapa em que o usuário retoma (1..7).
 export const onboardingProgressSchema = z.object({
-  step: z.number().int().min(1).max(7),
+  step: z.number().int().min(1).max(8),
   answers: onboardingAnswersSchema.partial(),
 });
 

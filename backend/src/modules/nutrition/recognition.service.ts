@@ -2,6 +2,7 @@ import { pool } from '../../database/pool';
 import { config } from '../../shared/config';
 import { AppError } from '../../shared/errors';
 import { displayFoodName } from '../../shared/food-name';
+import { loadPreferences, sortByPreference, type Preferences } from '../preferences/preferences.service';
 
 interface RecognizedFood {
   name: string;
@@ -18,7 +19,7 @@ const STOPWORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'com', 'sem', 'em', '
 const escapeLike = (s: string) => s.replace(/[\%_]/g, '\$&');
 
 /** Alimentos candidatos para um nome livre: ranqueados pelo nº de palavras que casam. */
-async function findCandidates(name: string) {
+async function findCandidates(name: string, prefs: Preferences | null) {
   const tokens = name
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)
@@ -36,7 +37,7 @@ async function findCandidates(name: string) {
      LIMIT 5`,
     [patterns, `${escapeLike(tokens[0])}%`],
   );
-  return rows.map((r) => ({
+  return sortByPreference(rows, prefs, (r) => r.name as string).map((r) => ({
     foodId: r.id,
     name: r.name,
     displayName: displayFoodName(r.name, r.source, r.category),
@@ -52,7 +53,7 @@ async function findCandidates(name: string) {
  * Envia a foto ao ai-service (Claude Vision) e casa cada alimento reconhecido com o banco.
  * Nada é registrado aqui: o aluno confirma/corrige e então chama POST /nutrition/logs.
  */
-export async function recognizeMeal(image: Buffer, mimeType: string, hints?: string) {
+export async function recognizeMeal(image: Buffer, mimeType: string, hints?: string, userId?: string) {
   if (!config.aiService.token) {
     throw new AppError(503, 'ai_unavailable', 'Reconhecimento por foto não configurado');
   }
@@ -78,6 +79,7 @@ export async function recognizeMeal(image: Buffer, mimeType: string, hints?: str
 
   const { foods } = (await res.json()) as { foods: RecognizedFood[] };
   // `estimated` são os macros que o Claude calculou para a porção; serve de fallback quando nenhum candidato da TACO serve.
+  const prefs = userId ? await loadPreferences(userId) : null;
   const matched = await Promise.all(
     foods.map(async (f) => ({
       recognized: {
@@ -86,7 +88,7 @@ export async function recognizeMeal(image: Buffer, mimeType: string, hints?: str
         confidence: f.confidence,
         estimated: { kcal: f.kcal, proteinG: f.protein_g, carbG: f.carb_g, fatG: f.fat_g },
       },
-      candidates: await findCandidates(f.name),
+      candidates: await findCandidates(f.name, prefs),
     })),
   );
 

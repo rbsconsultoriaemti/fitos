@@ -5,6 +5,8 @@ import { displayFoodName } from '../../shared/food-name';
 import { updatePlanSchema, type PlanContent } from '../workout/workout.schemas';
 import { callClaudeTool } from './claude';
 import type { FoodContext } from './food-context';
+import { resolveLikedFoods } from '../preferences/liked-foods';
+import type { Preferences } from '../preferences/preferences.service';
 import type { NutritionTargets } from './nutrition-targets';
 import { GOAL_LABELS, type OnboardingAnswers } from './onboarding.schemas';
 import { truncate, type OnboardingLogger } from './onboarding.log';
@@ -26,6 +28,8 @@ export interface PersonForPlan {
   answers: OnboardingAnswers;
   nutrition: NutritionTargets;
   foods: FoodContext;
+  /** Preferências alimentares do questionário (gosta / não gosta). */
+  preferences: Preferences;
   /** Campos que não vieram do app/banco e receberam valor padrão. */
   defaultsUsed: string[];
 }
@@ -83,6 +87,7 @@ TREINO — use EXCLUSIVAMENTE exercícios do catálogo, referenciados pelo núme
 ALIMENTAÇÃO — use EXCLUSIVAMENTE alimentos do catálogo de alimentos, referenciados por "foodRef", com quantidade em gramas (peso do alimento como está no catálogo, ex.: arroz já cozido):
 - Monte o número de refeições pedido (nome e horário HH:MM). A soma do dia deve ficar próxima da meta de kcal e dos macros informados (já calculados; não recalcule).
 - Priorize os alimentos favoritos e os mais consumidos da pessoa, sem repetir o mesmo alimento na mesma refeição, e complete com o catálogo.
+- PREFERÊNCIAS: use os alimentos da lista "gosta" para compor as refeições (marcados ♥ no catálogo) e NUNCA inclua os da lista "não gosta", nem variações deles. Mantenha a meta de kcal e macros. Use somente alimentos do catálogo.
 - Respeite as restrições alimentares (vegetariano/vegano: sem carnes/ovos/laticínios conforme o caso; sem glúten; sem lactose; intolerância informada). Se o catálogo não tiver substituto, use menos itens em vez de violar a restrição.
 
 Escreva em português do Brasil. O "summary" tem até 5 frases curtas: lógica do treino, comentário sobre a meta calórica e os macros, e o lembrete de que é uma sugestão da IA que não substitui nutricionista, médico ou profissional de educação física.`;
@@ -118,6 +123,10 @@ META NUTRICIONAL JÁ CALCULADA (não recalcule)
 - Gasto basal ${n.bmr} kcal; fator de atividade ${n.activityFactor}; gasto total ${n.tdee} kcal; ajuste do objetivo ${n.adjustmentPct}%
 - Meta: ${n.kcal} kcal/dia; proteína ${n.proteinG} g; carboidrato ${n.carbG} g; gordura ${n.fatG} g
 ${n.notes.length ? `- Observações: ${n.notes.join(' ')}\n` : ''}
+PREFERÊNCIAS ALIMENTARES (questionário)
+- Gosta: ${p.preferences.like.map((i) => i.label).join(', ') || 'nenhuma informada'}
+- Não gosta (não incluir): ${p.preferences.dislike.map((i) => i.label).join(', ') || 'nenhuma informada'}
+
 ALIMENTOS FAVORITOS (valores TACO por 100 g)
 ${favorites.join('\n') || '- nenhum informado'}
 
@@ -395,9 +404,13 @@ export async function generatePlans(p: PersonForPlan, log: OnboardingLogger): Pr
       line: `${f.name}${tag} | ${f1(f.kcal)} | ${f1(f.protein)} | ${f1(f.carb)} | ${f1(f.fat)}`,
     });
   };
-  p.foods.favorites.forEach((f) => f.food && push(f.food, ' ★favorito'));
-  p.foods.topConsumed.forEach((f) => push(f, ' ★mais consumido'));
-  p.foods.staples.forEach((f) => push(f, ''));
+  // Alimentos que a pessoa não gosta nunca entram no catálogo enviado à IA (ela só pode usar o que está nele).
+  const allowed = <T extends { name: string }>(f: T) => p.preferences.rank(f.name) !== 2;
+  const liked = await resolveLikedFoods(p.preferences.like);
+  liked.filter(allowed).forEach((f) => push(f, ' ♥gosta'));
+  p.foods.favorites.forEach((f) => f.food && allowed(f.food) && push(f.food, ' ★favorito'));
+  p.foods.topConsumed.filter(allowed).forEach((f) => push(f, ' ★mais consumido'));
+  p.foods.staples.filter(allowed).forEach((f) => push(f, ''));
 
   const user = buildUserPrompt(p, catalog, foodList);
   log.debug('prompt completo enviado à Claude API', `\n--- SYSTEM ---\n${SYSTEM}\n--- USER ---\n${user}`);

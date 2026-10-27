@@ -43,7 +43,7 @@ Não há outros desenvolvedores. Cada sessão começa lendo este arquivo.
 5. **Ciclismo** — FTP, TSS, zonas de potência, import FIT/Strava _(não iniciado)_
 6. **Psicologia** — sessões, notas criptografadas, check-in de humor, metas _(não iniciado)_
 
-Transversais já feitos: onboarding com plano de treino e plano alimentar gerados pela Claude API, cotas por plano (backend) e painel do professor.
+Transversais já feitos: onboarding com plano de treino e plano alimentar gerados pela Claude API, preferências alimentares (gosto / não gosto), cotas por plano (backend) e painel do professor.
 
 ---
 
@@ -174,6 +174,8 @@ fitos/
 │   │   │   │   └── STATUS.md
 │   │   │   ├── onboarding/    ← plano de treino + alimentar pela Claude API
 │   │   │   │   └── STATUS.md
+│   │   │   ├── preferences/   ← preferências alimentares (food_preferences, /preferences/foods)
+│   │   │   │   └── STATUS.md
 │   │   │   ├── quotas/        ← cotas por plano (usage_quotas, GET /quotas)
 │   │   │   │   └── STATUS.md
 │   │   │   ├── trainer/       ← painel do professor (/trainer/students...)
@@ -226,5 +228,5 @@ Eu produzo o diff exato para você colar nos arquivos STATUS.md e PROXIMOS_PASSO
   e por fim `docker compose up -d --build`
 - Logs: `docker logs fitos-fitos-api-1 --tail 50` e `docker logs fitos-ai-service-1 --tail 50`
 - App mobile em produção: APK release gerado localmente (`C:\fx\mobile\android`: `.\gradlew.bat assembleRelease`)
-- O projeto vive em `C:\fx`. Última migration: `018_usage-quotas`; quais já rodaram na VPS: não verificado
+- O projeto vive em `C:\fx`. Última migration: `019_food-preferences`; quais já rodaram na VPS: não verificado
 - Próximo: testar no aparelho (APK novo), subir na VPS (git pull + migrations pendentes + `docker compose up -d --build`) e depois o módulo de Corrida. Ver PROXIMOS_PASSOS.md

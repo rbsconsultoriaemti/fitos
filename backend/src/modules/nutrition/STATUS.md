@@ -65,6 +65,9 @@ Reconhecimento por foto
 - `npm run seed:portions` (`seeds/food-portions.sql`, idempotente) preenche 44 alimentos da TACO: pão de forma/francês, ovos, queijo/presunto (fatia), manteiga, óleos/azeite, açúcar, mel, aveia, arroz cozido, refrigerantes/chás/sucos (copo e xícara), café.
 - **A TACO não tem medidas caseiras.** Os valores são estimativas usuais (referências de rotulagem da ANVISA e senso comum), não dados oficiais. Ex.: fatia de pão de forma = 25 g (não 30 g). A fonte adequada para completar é a tabela de medidas referidas da POF/IBGE. Alimento sem porção só aceita gramas.
 
+## Preferências alimentares na busca
+- `GET /nutrition/foods?q=` e os candidatos de `POST /recognize` respeitam `food_preferences` (módulo `preferences/`): "gosta" sobe, "não gosta" desce, ninguém some; sem preferências nada muda. Teste: `npm run test:preferences`.
+
 ## Job noturno
 - `daily_summaries` é derivada; `src/jobs/daily-summaries.ts` recalcula o dia (padrão: ontem) a partir de `food_logs`, idempotente (upsert). `workout_kcal_burned` fica nulo por enquanto.
 
