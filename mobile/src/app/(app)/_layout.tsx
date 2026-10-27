@@ -58,6 +58,9 @@ export default function AppLayout() {
       <Stack.Screen name="food/photo" options={{ title: 'Foto → calorias' }} />
       <Stack.Screen name="settings/notifications" options={{ title: 'Notificações' }} />
       <Stack.Screen name="settings/food-preferences" options={{ title: 'Minhas preferências' }} />
+      <Stack.Screen name="settings/favorite-foods" options={{ title: 'Alimentos favoritos' }} />
+      <Stack.Screen name="favorites/index" options={{ title: 'Refeições favoritas' }} />
+      <Stack.Screen name="favorites/[id]" options={{ title: 'Editar favorita' }} />
       <Stack.Screen name="trainer/student/[id]" options={{ title: 'Aluno' }} />
       <Stack.Screen name="trainer/prescribe/[studentId]" options={{ title: 'Prescrever treino' }} />
       <Stack.Screen name="log/[id]" options={{ title: 'Treino realizado' }} />

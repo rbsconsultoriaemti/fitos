@@ -1,6 +1,7 @@
 /**
  * Teste das preferências alimentares: validação do PUT, gravação idempotente, GET com as respostas e ordenação
- * da busca de alimentos (gosto sobe, não gosto desce, ninguém some). Inclui a lógica pura de ranking.
+ * da busca de alimentos (gosto sobe, não gosto desce, ninguém some). Inclui a lógica pura de ranking e o
+ * PUT /nutrition/templates/:id (edição de refeição favorita: dono, outro usuário, validação).
  *
  *   npm run test:preferences
  */
@@ -138,6 +139,33 @@ async function main() {
     const baseNeutral = base.filter((f) => !isLiked(f) && !isDisliked(f)).map((f) => f.id);
     check(JSON.stringify(neutralIdx.map((i) => baseA[i].id)) === JSON.stringify(baseNeutral), 'a ordem entre os indiferentes é a da busca original');
     check(ids(await search(b.token, 'frango')) === ids(base), 'outro usuário continua com a busca original');
+
+    console.log('\n— PUT /nutrition/templates/:id —');
+    const foods = (await call('/nutrition/foods?q=arroz', a.token)).body as Food[];
+    const [f1, f2] = [foods[0], foods[1]];
+    const created = await call('/nutrition/templates', a.token, 'POST', { name: 'Almoço teste', mealType: 'lunch', items: [{ foodId: f1.id, quantityG: 100 }] });
+    check(created.status === 201, 'POST /templates cria a favorita', created.body);
+    const tid = created.body.id as string;
+    const edit = { name: 'Almoço teste 2', mealType: 'dinner', items: [{ foodId: f1.id, quantityG: 150 }, { foodId: f2.id, quantityG: 80 }] };
+    let u = await call(`/nutrition/templates/${tid}`, a.token, 'PUT', edit);
+    check(u.status === 200 && u.body.id === tid && u.body.name === 'Almoço teste 2' && u.body.mealType === 'dinner' && u.body.items.length === 2, 'dono edita nome, refeição e itens', u.body);
+    check(u.body.items[0].quantityG === 150 && u.body.items[1].quantityG === 80, 'quantidades atualizadas');
+    const listed = (await call('/nutrition/templates', a.token)).body as { id: string; name: string }[];
+    check(listed.filter((t) => t.id === tid).length === 1 && listed.find((t) => t.id === tid)!.name === 'Almoço teste 2', 'GET /templates reflete a edição (sem duplicar)');
+    u = await call(`/nutrition/templates/${tid}`, a.token, 'PUT', edit);
+    check(u.status === 200, 'repetir o mesmo PUT é aceito (idempotente)');
+    u = await call(`/nutrition/templates/${tid}`, b.token, 'PUT', { ...edit, name: 'Invasor' });
+    check(u.status === 404, 'outro usuário => 404 (não é dono)', u);
+    check((await call('/nutrition/templates', a.token)).body.find((t: { id: string }) => t.id === tid).name === 'Almoço teste 2', 'a edição de outro usuário não alterou a favorita');
+    check((await call('/nutrition/templates/00000000-0000-4000-8000-000000000000', a.token, 'PUT', edit)).status === 404, 'id inexistente => 404');
+    check((await call('/nutrition/templates/nao-e-uuid', a.token, 'PUT', edit)).status === 400, 'id inválido => 400');
+    check((await call(`/nutrition/templates/${tid}`, a.token, 'PUT', { ...edit, items: [] })).status === 400, 'sem itens => 400 (mesma validação do POST)');
+    check((await call(`/nutrition/templates/${tid}`, a.token, 'PUT', { ...edit, name: '   ' })).status === 400, 'nome vazio => 400');
+    check((await call(`/nutrition/templates/${tid}`, a.token, 'PUT', { ...edit, items: [{ foodId: f1.id }] })).status === 400, 'item sem quantidade => 400');
+    check((await call(`/nutrition/templates/${tid}`, a.token, 'PUT', { ...edit, items: [{ foodId: '11111111-1111-4111-8111-111111111111', quantityG: 50 }] })).status === 400, 'alimento inexistente => 400');
+    check((await call(`/nutrition/templates/${tid}`, null, 'PUT', edit)).status === 401, 'sem token => 401');
+    await call('/nutrition/templates', a.token, 'POST', { name: 'Outra favorita', items: [{ foodId: f1.id, quantityG: 50 }] });
+    check((await call(`/nutrition/templates/${tid}`, a.token, 'PUT', { ...edit, name: 'outra FAVORITA' })).status === 409, 'nome repetido => 409');
   } finally {
     for (const email of emails) await pool.query('DELETE FROM users WHERE email = $1', [email]).catch(() => undefined);
     await pool.end();

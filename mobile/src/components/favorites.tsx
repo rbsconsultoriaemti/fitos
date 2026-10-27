@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 
@@ -117,7 +118,10 @@ export function ApplyFavoriteModal({
               <T variant="muted">{t.items.map((i) => foodLabel(i)).join(' · ')}</T>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <T variant="label">{busy === t.id ? 'Adicionando…' : 'Toque para adicionar tudo'}</T>
-                <Button title="Excluir" kind="ghost" disabled={busy !== null || offline} onPress={() => onDelete(t)} />
+                <View style={{ flexDirection: 'row' }}>
+                  <Button title="Editar" kind="ghost" disabled={busy !== null || offline} onPress={() => { onClose(); router.push(`/favorites/${t.id}` as never); }} />
+                  <Button title="Excluir" kind="ghost" disabled={busy !== null || offline} onPress={() => onDelete(t)} />
+                </View>
               </View>
             </Card>
           </Pressable>

@@ -108,6 +108,25 @@ export async function applyTemplate(auth: Auth, id: string, input: ApplyTemplate
   });
 }
 
+/** Edita a favorita (nome, refeição e itens). Só a dona pode: id de outro usuário responde 404, como se não existisse. */
+export async function updateTemplate(auth: Auth, id: string, input: CreateTemplateInput) {
+  const foodIds = [...new Set(input.items.map((i) => i.foodId))];
+  const { rowCount } = await pool.query('SELECT 1 FROM foods WHERE id = ANY($1::uuid[])', [foodIds]);
+  if (rowCount !== foodIds.length) throw new AppError(400, 'unknown_food', 'Um ou mais alimentos não existem');
+
+  try {
+    const { rowCount: updated } = await pool.query(
+      `UPDATE meal_templates SET name = $3, meal_type = $4, items = $5::jsonb WHERE id = $1 AND user_id = $2`,
+      [id, auth.sub, input.name, input.mealType ?? null, JSON.stringify(input.items)],
+    );
+    if (!updated) throw notFound();
+  } catch (err: any) {
+    if (err?.code === '23505') throw new AppError(409, 'template_exists', 'Você já tem uma favorita com esse nome');
+    throw err;
+  }
+  return (await listTemplates(auth)).find((t) => t.id === id)!;
+}
+
 export async function deleteTemplate(auth: Auth, id: string) {
   const { rowCount } = await pool.query('DELETE FROM meal_templates WHERE id = $1 AND user_id = $2', [id, auth.sub]);
   if (!rowCount) throw notFound();

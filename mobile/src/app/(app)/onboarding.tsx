@@ -5,6 +5,7 @@ import { Animated, BackHandler, Easing, KeyboardAvoidingView, Platform, Pressabl
 import { CatalogStatus, FoodPreferencesPicker, putFoodPreferences, savedPrefs, useFoodCatalog } from '@/components/food-preferences';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FavoriteFoodsField } from '@/components/favorite-foods-field';
 import { Button, Card, Chip, ErrorText, Input, ProgressBar, T } from '@/components/ui';
 import { api } from '@/lib/api';
 import { errorMessage, notify } from '@/lib/dialog';
@@ -449,14 +450,7 @@ function StepFood({ form, set }: StepProps) {
           maxLength={200}
         />
       ) : null}
-      <Input
-        label="Quais alimentos você mais gosta? (opcional)"
-        value={form.favoriteFoods}
-        onChangeText={(v) => set('favoriteFoods', v)}
-        placeholder="Ex.: arroz, feijão, frango grelhado, ovo cozido"
-        multiline
-        maxLength={300}
-      />
+      <FavoriteFoodsField value={form.favoriteFoods} onChange={(v) => set('favoriteFoods', v)} />
       <Question title="Quantas refeições por dia?">
         {MEALS.map((m) => (
           <Chip key={m} label={m === 6 ? '6 ou mais' : String(m)} selected={form.mealsPerDay === m} onPress={() => set('mealsPerDay', m)} />

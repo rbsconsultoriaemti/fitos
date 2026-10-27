@@ -8,6 +8,7 @@ Feito (no código, commitado até 436d65d; `tsc` e testes do backend OK, nada te
 - Painel do professor: `/trainer/students[/:id]`, `suggest-plan`, telas e prescrição (`npm run test:trainer`).
 - Visual estilo iOS (tema azul, `ui.tsx`, navegação, títulos grandes nas abas, listas agrupadas com divisores) e safe area nas telas de pilha, incluindo "Foto → calorias".
 - Preferências alimentares: catálogo de 150 itens (`preferences/food-catalog.ts`), migration 019, `GET/PUT /preferences/foods`, prompt da IA com gosta/não gosta, busca e candidatos da foto ordenados pelas preferências, nova etapa 6 no onboarding (agora 8 etapas) e Perfil > Minhas preferências. Testes: `test:preferences`, `test:onboarding`, `test:quotas`, `test:recognize`, `check:food-catalog` (backend OK; app com `tsc` OK, sem teste no aparelho; sem commit ainda).
+- Perfil > Alimentação: Minhas preferências, Alimentos favoritos (campo compartilhado com o onboarding) e Refeições favoritas com tela de edição (`PUT /nutrition/templates/:id`, coberto em `test:preferences`). `tsc` OK nos dois; app sem teste no aparelho; sem commit.
 - Deploy documentado só em Docker + Traefik (PM2 desativado) e seção "Reconstruir o servidor do zero" no DEPLOY_VPS.md.
 
 Próxima sessão — objetivo: fechar o ciclo de teste e subir para a VPS, depois começar o módulo de Corrida.

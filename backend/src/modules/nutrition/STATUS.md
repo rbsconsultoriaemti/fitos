@@ -68,6 +68,9 @@ Reconhecimento por foto
 ## Preferências alimentares na busca
 - `GET /nutrition/foods?q=` e os candidatos de `POST /recognize` respeitam `food_preferences` (módulo `preferences/`): "gosta" sobe, "não gosta" desce, ninguém some; sem preferências nada muda. Teste: `npm run test:preferences`.
 
+## Refeições favoritas: edição
+- `PUT /nutrition/templates/:id` (nome, `mealType` opcional e `items`, mesma validação do POST). Só a dona edita: id de outro usuário ou inexistente => 404; nome repetido => 409; alimento inexistente => 400. Coberto em `npm run test:preferences`.
+
 ## Job noturno
 - `daily_summaries` é derivada; `src/jobs/daily-summaries.ts` recalcula o dia (padrão: ontem) a partir de `food_logs`, idempotente (upsert). `workout_kcal_burned` fica nulo por enquanto.
 

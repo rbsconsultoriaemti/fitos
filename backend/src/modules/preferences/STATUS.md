@@ -18,6 +18,9 @@
 - Plano da IA (`onboarding/plan-generator.ts`): o prompt traz "Gosta" e "Não gosta (não incluir)" com os labels em português e a instrução de usar os gostos e nunca incluir os que não gosta. Alimentos que casam com "não gosta" saem do catálogo enviado à IA (ela só usa o que está nele); um alimento da TACO por item "gosta" entra marcado `♥gosta` (`liked-foods.ts`). Modelo e parâmetros inalterados.
 - `preferences.service.ts`: `loadPreferences`, `buildPreferences` (`rank` 0/1/2) e `sortByPreference`.
 
+## Relacionado (Perfil > Alimentação)
+- Alimentos favoritos (texto) são editados pelo `PUT /profile` com `onboarding.answers.favoriteFoods` (sem rota nova). Refeições favoritas: `PUT /nutrition/templates/:id` (ver nutrition/STATUS.md).
+
 ## Pendências
 - Não verificado com a Claude real se a IA respeita a lista (o teste usa a API simulada e confere o prompt).
 - A lista "Usados recentemente" da busca do app é local e não segue as preferências.

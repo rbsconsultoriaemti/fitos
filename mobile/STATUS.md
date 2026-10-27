@@ -11,6 +11,8 @@
 - `(tabs)/nutrition` — dia (navegação por data), card da meta de calorias (calculada pelo perfil + treinos do dia; "Ajustar" define meta manual), resumo kcal/macros × meta, 5 refeições (Café, Lanche manhã, Almoço, Lanche tarde, Jantar) com alimentos, "+", "★ Salvar como favorita" e "Favoritas" (registra tudo de uma vez), remover alimento, botão Foto → calorias
 - Nomes de alimentos aparecem como nome de cardápio (`displayName` da API, via `foodLabel`) em busca, diário, foto, favoritas e quantidade
 - Início: card **Hidratação** (`components/water-widget.tsx`, lógica em `lib/water.ts`): copo animado, X ml de Y ml + %, barra vermelha (< 50%) / amarela (50–80%) / verde (> 80%), botões +150/+250/+500 ml e "Desfazer último". Meta 2 L (2,5 L para quem declarou mais de 2 L). Todo gole entra primeiro numa fila local (com `clientId`) e sobe em seguida: offline o total é servidor + fila; ao voltar a internet a fila sobe sem duplicar. Desfazer um registro já enviado exige internet. O total zera sozinho na virada do dia (cache por dia + temporizador até a meia-noite)
+- `settings/favorite-foods` — Perfil > Alimentação > "Alimentos favoritos": o mesmo campo de texto da etapa 5 (`components/favorite-foods-field.tsx`, compartilhado), salvo via `PUT /profile` sem refazer o cadastro (exige internet)
+- `favorites/index` e `favorites/[id]` — Perfil > Alimentação > "Refeições favoritas" (também pelo botão "Editar" no modal de favoritas da aba Nutrição): lista, edição de nome, refeição, alimentos (adicionar pela busca, remover) e gramas, `PUT /nutrition/templates/:id`; editar e excluir exigem internet
 - `settings/food-preferences` — Perfil > "Minhas preferências alimentares": o mesmo seletor do onboarding, com "Salvar preferências" (exige internet)
 - `settings/notifications` — lembretes locais (expo-notifications, agendados no aparelho; sem servidor). Acesso pelo sino na Início e por "Notificações e lembretes" no Perfil. Liga/desliga treino, refeições e hidratação; horário do treino com seletor − / + (hora e 5 min). Botão de teste (5 s). Lógica em `src/lib/notifications.ts`:
   - Treino: um lembrete semanal por dia COM treino no plano ativo (dia de descanso não notifica), "Você tem X séries…" (X = soma das séries do dia); padrão 07:00. O plano vem da API ou do cache
@@ -25,6 +27,7 @@
 
 - Cotas: `lib/quotas.ts` (`fetchQuotas` -> `GET /quotas`, `photoQuotaText`, `releaseText`) e `lib/api.ts` (`ApiError.details`). `food/photo` mostra quantas fotos restam e quando libera, e desabilita "Analisar foto" com a cota esgotada. Escrito e com `tsc` OK; NÃO testado no aparelho. O onboarding ainda não trata o 429 `quota_exceeded` (sem aviso de plano de treino por IA ainda não liberado)
 
+- Perfil agora tem a seção "Alimentação" (Minhas preferências, Alimentos favoritos, Refeições favoritas): escrita, `tsc` OK, NÃO testada no aparelho (nem o comportamento offline)
 - Preferências alimentares: escrito, `tsc` OK, NÃO testado no aparelho; o onboarding mudou de 7 para 8 etapas (quem estava na etapa 6 ou 7 de um questionário em andamento retoma uma etapa depois do que viu antes). A lista "Usados recentemente" da busca é local e não segue as preferências
 
 ## Modo offline (academia no subsolo) — `src/lib/offline.ts`
