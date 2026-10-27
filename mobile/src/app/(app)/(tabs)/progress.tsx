@@ -2,7 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
-import { Card, ErrorText, T } from '@/components/ui';
+import { Card, ErrorText, Separator, T } from '@/components/ui';
 import { errorMessage } from '@/lib/dialog';
 import { addDays, fmt0, fmt1, isoWeekday, localDate, WEEKDAYS } from '@/lib/format';
 import { loadHistory } from '@/lib/offline';
@@ -101,12 +101,15 @@ export default function Progress() {
 
           <T variant="h2">Histórico</T>
           {logs && logs.length === 0 ? <T variant="muted">Nenhum treino finalizado ainda.</T> : null}
-          {logs?.map((l) => {
+          {logs && logs.length > 0 ? (
+            <Card style={{ paddingHorizontal: 0, paddingVertical: 0, gap: 0, overflow: 'hidden' }}>
+            {logs.map((l, i) => {
             const [, m, day] = dayOf(l.performedAt).split('-');
             const title = [l.dayOfWeek ? WEEKDAYS[l.dayOfWeek - 1] : null, l.muscleGroup].filter(Boolean).join(' · ') || 'Treino';
             return (
-              <Pressable key={l.id} disabled={offline} onPress={() => router.push(`/log/${l.id}` as never)}>
-                <Card style={{ gap: space.xs }}>
+              <View key={l.id}>
+                {i > 0 ? <Separator style={{ marginLeft: space.lg }} /> : null}
+              <Pressable disabled={offline} onPress={() => router.push(`/log/${l.id}` as never)} style={({ pressed }) => ({ gap: space.xs, padding: space.lg, opacity: pressed ? 0.6 : 1 })}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <T variant="h2">{title}</T>
                     <T variant="muted">{`${day}/${m}`}</T>
@@ -127,10 +130,12 @@ export default function Progress() {
                       Ver detalhes
                     </T>
                   ) : null}
-                </Card>
               </Pressable>
+              </View>
             );
           })}
+            </Card>
+          ) : null}
         </>
       ) : error ? null : (
         <T variant="muted">Carregando…</T>

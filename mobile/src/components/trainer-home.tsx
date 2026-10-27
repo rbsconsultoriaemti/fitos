@@ -3,7 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Share, View } from 'react-native';
 
-import { Button, Card, ErrorText, Input, T } from '@/components/ui';
+import { Button, Card, ErrorText, Input, Separator, T } from '@/components/ui';
 import { api } from '@/lib/api';
 import { errorMessage, notify } from '@/lib/dialog';
 import { initialOf, normalize } from '@/lib/format';
@@ -147,25 +147,30 @@ export function TrainerHome() {
 
       {data && data.students.length > 0 && students.length === 0 ? <T variant="muted">Nenhum aluno com esse nome.</T> : null}
 
-      <View style={{ gap: space.sm }}>
-        {students.map((s) => (
-          <Pressable key={s.id} accessibilityRole="button" accessibilityLabel={`${s.name}, ${status(s.todayStatus).label}`} onPress={() => router.push(`/trainer/student/${s.id}` as never)}>
-            <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-              <Avatar name={s.name} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <T variant="h2" numberOfLines={1}>
-                  {s.name}
-                </T>
-                <T variant="muted" numberOfLines={1}>
-                  {subtitle(s)}
-                </T>
-                <StatusBadge status={s.todayStatus} />
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={c.muted} />
-            </Card>
-          </Pressable>
-        ))}
-      </View>
+      {students.length > 0 ? (
+        <Card style={{ paddingHorizontal: 0, paddingVertical: 0, gap: 0, overflow: 'hidden' }}>
+          {students.map((s, i) => (
+            <View key={s.id}>
+              {i > 0 ? <Separator style={{ marginLeft: space.lg }} /> : null}
+              <Pressable accessibilityRole="button" accessibilityLabel={`${s.name}, ${status(s.todayStatus).label}`} onPress={() => router.push(`/trainer/student/${s.id}` as never)}
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, opacity: pressed ? 0.6 : 1 })}
+              >
+                <Avatar name={s.name} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <T variant="h2" numberOfLines={1}>
+                    {s.name}
+                  </T>
+                  <T variant="muted" numberOfLines={1}>
+                    {subtitle(s)}
+                  </T>
+                  <StatusBadge status={s.todayStatus} />
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={c.muted} />
+              </Pressable>
+            </View>
+          ))}
+        </Card>
+      ) : null}
     </ScrollView>
   );
 }

@@ -4,7 +4,7 @@ import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Avatar } from '@/components/trainer-home';
-import { Card, ErrorText, Input, T } from '@/components/ui';
+import { Card, ErrorText, Input, Separator, T } from '@/components/ui';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/dialog';
 import { normalize } from '@/lib/format';
@@ -54,25 +54,31 @@ export default function PrescribeTab() {
         />
       }
     >
-      <T variant="title">Prescrever treino</T>
       <T variant="muted">Para quem você quer prescrever?</T>
       <ErrorText>{error}</ErrorText>
       {data && data.students.length > 0 ? <Input placeholder="Buscar aluno por nome" value={query} onChangeText={setQuery} autoCorrect={false} /> : null}
       {data && data.students.length === 0 ? <T variant="muted">Você ainda não tem alunos. Convide alunos pela aba Início.</T> : null}
       {data && data.students.length > 0 && students.length === 0 ? <T variant="muted">Nenhum aluno com esse nome.</T> : null}
-      <View style={{ gap: space.sm }}>
-        {students.map((s) => (
-          <Pressable key={s.id} accessibilityRole="button" onPress={() => router.push(`/trainer/prescribe/${s.id}` as never)}>
-            <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-              <Avatar name={s.name} />
-              <T variant="h2" style={{ flex: 1 }} numberOfLines={1}>
-                {s.name}
-              </T>
-              <Ionicons name="chevron-forward" size={20} color={c.muted} />
-            </Card>
-          </Pressable>
-        ))}
-      </View>
+      {students.length > 0 ? (
+        <Card style={{ paddingHorizontal: 0, paddingVertical: 0, gap: 0, overflow: 'hidden' }}>
+          {students.map((s, i) => (
+            <View key={s.id}>
+              {i > 0 ? <Separator style={{ marginLeft: space.lg }} /> : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push(`/trainer/prescribe/${s.id}` as never)}
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, opacity: pressed ? 0.6 : 1 })}
+              >
+                <Avatar name={s.name} />
+                <T variant="h2" style={{ flex: 1 }} numberOfLines={1}>
+                  {s.name}
+                </T>
+                <Ionicons name="chevron-forward" size={20} color={c.muted} />
+              </Pressable>
+            </View>
+          ))}
+        </Card>
+      ) : null}
     </ScrollView>
   );
 }

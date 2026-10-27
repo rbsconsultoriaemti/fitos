@@ -6,7 +6,7 @@ import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { DaySummary } from '@/components/day-summary';
 import { EnergyCard } from '@/components/energy-card';
 import { ApplyFavoriteModal, SaveFavoriteModal } from '@/components/favorites';
-import { Button, Card, ErrorText, T } from '@/components/ui';
+import { Button, Card, ErrorText, Separator, T } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { confirm, errorMessage, notify } from '@/lib/dialog';
 import { addDays, dateLabel, fmt0, foodLabel, localDate, MEAL_LABELS, MEAL_ORDER } from '@/lib/format';
@@ -193,9 +193,12 @@ export default function Nutrition() {
           <T variant="h2">{`Aguardando envio (${pending.length})`}</T>
           <T variant="muted">{`≈ ${fmt0(pendingKcal)} kcal registradas sem sinal. Enviam sozinhas quando a conexão voltar e ainda não entram no resumo acima.`}</T>
           {pending.map((p) => (
-            <View key={p.localId} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <T style={{ flex: 1 }}>{`${MEAL_LABELS[p.preview.mealType]} · ${p.preview.name}`}</T>
-              <T variant="muted">{`${fmt0(p.preview.kcal)} kcal`}</T>
+            <View key={p.localId} style={{ gap: space.xs }}>
+              <Separator />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <T style={{ flex: 1 }}>{`${MEAL_LABELS[p.preview.mealType]} · ${p.preview.name}`}</T>
+                <T variant="muted">{`${fmt0(p.preview.kcal)} kcal`}</T>
+              </View>
             </View>
           ))}
         </Card>
@@ -216,7 +219,9 @@ export default function Nutrition() {
               </Pressable>
             </View>
             {meal?.entries.map((e) => (
-              <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+              <View key={e.id} style={{ gap: space.sm }}>
+                <Separator />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
                 <View style={{ flex: 1 }}>
                   <T>{foodLabel(e.food)}</T>
                   <T variant="muted">{quantityText(e)}</T>
@@ -225,6 +230,7 @@ export default function Nutrition() {
                 <Pressable accessibilityLabel={`Remover ${foodLabel(e.food)}`} hitSlop={8} onPress={() => remove(e)}>
                   <Ionicons name="trash-outline" size={20} color={c.muted} />
                 </Pressable>
+                </View>
               </View>
             ))}
             {meal && !hasEntries ? <T variant="muted">Nada registrado.</T> : null}

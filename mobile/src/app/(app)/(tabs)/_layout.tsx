@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
+import { TabHeader } from '@/components/tab-header';
 import { useSession } from '@/session';
 import { useColors } from '@/theme';
 
@@ -18,11 +19,10 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: c.muted,
         tabBarStyle: { backgroundColor: c.card, borderTopColor: c.border, borderTopWidth: StyleSheet.hairlineWidth },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '500' },
-        // Barra de navegação estilo iOS: título centralizado semibold 17, fundo igual ao da tela, divisor fino.
-        headerStyle: { backgroundColor: c.bg, borderBottomColor: c.border, borderBottomWidth: StyleSheet.hairlineWidth, elevation: 0, shadowOpacity: 0 },
-        headerTitleAlign: 'center',
-        headerTitleStyle: { color: c.text, fontSize: 17, fontWeight: '600' },
-        headerTintColor: c.text,
+        // Título grande no estilo iOS. Na Início o título é a saudação da própria tela; só o "Sair" fica no cabeçalho.
+        header: ({ route, options }) => (
+          <TabHeader title={route.name === 'index' ? undefined : (options.title as string)} right={options.headerRight?.({ canGoBack: false })} />
+        ),
         sceneStyle: { backgroundColor: c.bg },
       }}
     >
