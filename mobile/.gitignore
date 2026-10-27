@@ -5,3 +5,5 @@ web-build/
 expo-env.d.ts
 .env
 *.log
+
+/android
