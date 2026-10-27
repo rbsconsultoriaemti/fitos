@@ -36,12 +36,14 @@ Não há outros desenvolvedores. Cada sessão começa lendo este arquivo.
 ## Módulos do sistema
 
 ### Módulos ativos (a construir em ordem)
-1. **Auth** — cadastro, login, papéis, convites por link
-2. **Musculação** — séries, cargas, periodização, log prescrito vs executado
-3. **Nutrição** — plano alimentar, foto→calorias, log diário, macros
-4. **Corrida de rua** — VDOT, pace por zona, plano por prova, import GPX
-5. **Ciclismo** — FTP, TSS, zonas de potência, import FIT/Strava
-6. **Psicologia** — sessões, notas criptografadas, check-in de humor, metas
+1. **Auth** — cadastro, login, papéis, convites por link _(pronto)_
+2. **Musculação** — séries, cargas, periodização, log prescrito vs executado _(pronto)_
+3. **Nutrição** — plano alimentar, foto→calorias, log diário, macros _(pronto)_
+4. **Corrida de rua** — VDOT, pace por zona, plano por prova, import GPX _(não iniciado)_
+5. **Ciclismo** — FTP, TSS, zonas de potência, import FIT/Strava _(não iniciado)_
+6. **Psicologia** — sessões, notas criptografadas, check-in de humor, metas _(não iniciado)_
+
+Transversais já feitos: onboarding com plano de treino e plano alimentar gerados pela Claude API, cotas por plano (backend) e painel do professor.
 
 ---
 
@@ -75,11 +77,11 @@ Roles no banco: `student | trainer | running_coach | cycling_coach | nutritionis
 
 | Recurso                                    | Plano gratuito (básico)            | Plano pago (R$ 19/mês ou R$ 175/ano) |
 |--------------------------------------------|------------------------------------|--------------------------------------|
-| Reconhecimento de foto (`POST /nutrition/recognize`) | **10 fotos por mês**               | **20 fotos por dia**                 |
+| Reconhecimento de foto (`POST /nutrition/recognize`) | **10 fotos a cada 30 dias** (janela deslizante) | **20 fotos a cada 24 h** (janela deslizante) |
 | Geração de plano de treino por IA (`POST /onboarding/complete`) | **1 geração a cada 3 meses** | **1 geração por semana**             |
 
 - **Janela corrente (decidido), não período de calendário:** o período é contado para trás a partir de agora. Plano de treino por IA: só libera de novo 3 meses (gratuito) ou 7 dias (pago) depois do último uso. Fotos: conta o que foi usado nos últimos 30 dias (gratuito) ou nas últimas 24 h (pago); o limite volta a liberar quando o uso mais antigo da janela completa 30 dias / 24 h. Assim ninguém ganha cota extra por usar no fim de um mês ou de uma semana.
-- Estourou o limite → API responde **429** com mensagem amigável (o app mostra quantas fotos restam: no mês para o básico, no dia para o pago).
+- Estourou o limite → API responde **429** com mensagem amigável (o app mostra quantas fotos restam e quando libera: nos últimos 30 dias para o básico, nas últimas 24 h para o pago).
 - O plano pago só vale com assinatura ativa confirmada no RevenueCat; sem confirmação, a cota é a do básico.
 - Uso rastreado na tabela `usage_quotas` (migration 018; `backend/src/modules/quotas/`), com janela deslizante. Plano pago = `subscriptions` premium com status `active` e não vencida (a confirmação via RevenueCat ainda é pendência: ver PROXIMOS_PASSOS.md). `GET /quotas` devolve o status das duas cotas.
 - Modelo do reconhecimento de foto: migrar de `claude-opus-4-5` para `claude-haiku-5-5` (custo ~R$ 0,20 → ~R$ 0,02 por foto) para sustentar essas cotas.
@@ -170,6 +172,12 @@ fitos/
 │   │   │   │   └── STATUS.md
 │   │   │   ├── nutrition/
 │   │   │   │   └── STATUS.md
+│   │   │   ├── onboarding/    ← plano de treino + alimentar pela Claude API
+│   │   │   │   └── STATUS.md
+│   │   │   ├── quotas/        ← cotas por plano (usage_quotas, GET /quotas)
+│   │   │   │   └── STATUS.md
+│   │   │   ├── trainer/       ← painel do professor (/trainer/students...)
+│   │   │   │   └── STATUS.md
 │   │   │   ├── running/
 │   │   │   │   └── STATUS.md
 │   │   │   ├── cycling/
@@ -181,12 +189,17 @@ fitos/
 │   │       └── migrations/
 │   └── package.json
 │
-├── ai-service/                ← Python + FastAPI
+├── ai-service/                ← Python + FastAPI (foto → calorias), Dockerfile
 │   └── STATUS.md
 │
-└── mobile/                    ← React Native + Expo
-    └── STATUS.md
+├── mobile/                    ← React Native + Expo
+│   ├── STATUS.md
+│   └── src/lib/quotas.ts      ← contador de cotas no app (usado em food/photo.tsx)
+│
+└── DEPLOY_VPS.md              ← deploy e reconstrução do servidor (Docker + Traefik)
 ```
+
+Obs.: `backend/src/modules/profile/` (perfil e questionário) também existe, mas não tem STATUS.md.
 
 ---
 
@@ -201,15 +214,17 @@ Eu produzo o diff exato para você colar nos arquivos STATUS.md e PROXIMOS_PASSO
 
 ### Estado atual do projeto
 - Fase: DESENVOLVIMENTO ATIVO
-- Último commit: 6225bbc
-- Módulos prontos: Auth, Musculação, Nutrição (completo com IA)
-- App do aluno: funcionando com onboarding, treino offline, nutrição, água, notificações
-- VPS: online em fitos.rbsconsulting.com.br com HTTPS
-- Produção: backend roda SOMENTE em Docker (container `fitos-fitos-api-1`), roteado pelo Traefik. PM2 desativado.
+- Último commit: 436d65d (a atualização de documentação desta sessão ainda não foi commitada)
+- Módulos prontos: Auth, Musculação, Nutrição (foto→calorias com edição, código de barras, favoritas, meta dinâmica, água com fila offline), onboarding com plano de treino e plano alimentar pela Claude API, notificações locais com tela de configurações
+- Cotas por plano: backend pronto e testado (`npm run test:quotas`; migration 018, `GET /quotas`, 429 `quota_exceeded`). App: contador de fotos restantes e aviso de liberação em `mobile/src/lib/quotas.ts` e `food/photo.tsx` (`tsc` OK; NÃO testado no aparelho). Falta o aviso no app quando o plano de treino por IA não está liberado (o onboarding ainda não trata o 429) e a verificação do plano pago via RevenueCat
+- Dashboard do professor: concluído no código (backend `/trainer/students[/:id]`, `suggest-plan`, telas e prescrição; `npm run test:trainer`). Falta testar no aparelho e subir na VPS (sem migration nova)
+- Visual: tema no estilo iOS aplicado (azul `#007AFF`/`#0A84FF`, títulos grandes nas abas, listas agrupadas com divisores) e correção de safe area nas telas de pilha, incluindo a tela de foto. `tsc` OK; NÃO verificado no aparelho
+- App do aluno: onboarding, treino offline, nutrição, água, notificações
+- VPS: online em fitos.rbsconsulting.com.br com HTTPS. Produção: backend roda SOMENTE em Docker (container `fitos-fitos-api-1`; ai-service em `fitos-ai-service-1`), roteado pelo Traefik. PM2 desativado. O `docker-compose.yml` da VPS e o Dockerfile da API não estão neste repositório (não verificado; pendente de versionar)
 - Deploy na VPS (detalhes em DEPLOY_VPS.md): `cd /var/www/fitos && git pull`, depois (só se houver migration nova)
   `DATABASE_URL="postgres://fitos:$(cat /root/fitos_db_pass.txt)@127.0.0.1:5432/fitos" npm run --prefix backend migrate:up`,
   e por fim `docker compose up -d --build`
 - Logs: `docker logs fitos-fitos-api-1 --tail 50` e `docker logs fitos-ai-service-1 --tail 50`
 - App mobile em produção: APK release gerado localmente (`C:\fx\mobile\android`: `.\gradlew.bat assembleRelease`)
-- O projeto vive em `C:\fx`
-- Próximo: Dashboard do professor
+- O projeto vive em `C:\fx`. Última migration: `018_usage-quotas`; quais já rodaram na VPS: não verificado
+- Próximo: testar no aparelho (APK novo), subir na VPS (git pull + migrations pendentes + `docker compose up -d --build`) e depois o módulo de Corrida. Ver PROXIMOS_PASSOS.md
