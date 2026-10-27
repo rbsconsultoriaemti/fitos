@@ -49,10 +49,10 @@ docker logs fitos-ai-service-1 --tail 50
 
 ## App mobile em produção
 
-O app em produção é um **APK release gerado localmente** (o projeto agora vive em `C:x`):
+O app em produção é um **APK release gerado localmente** (o projeto agora vive em `C:\fx`):
 
 ```powershell
-cd C:x\mobilendroid
+cd C:\fx\mobile\android
 .\gradlew.bat assembleRelease
 ```
 

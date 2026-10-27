@@ -210,6 +210,6 @@ Eu produzo o diff exato para você colar nos arquivos STATUS.md e PROXIMOS_PASSO
   `DATABASE_URL="postgres://fitos:$(cat /root/fitos_db_pass.txt)@127.0.0.1:5432/fitos" npm run --prefix backend migrate:up`,
   e por fim `docker compose up -d --build`
 - Logs: `docker logs fitos-fitos-api-1 --tail 50` e `docker logs fitos-ai-service-1 --tail 50`
-- App mobile em produção: APK release gerado localmente (`C:x\mobilendroid`: `.\gradlew.bat assembleRelease`)
-- O projeto vive em `C:x`
+- App mobile em produção: APK release gerado localmente (`C:\fx\mobile\android`: `.\gradlew.bat assembleRelease`)
+- O projeto vive em `C:\fx`
 - Próximo: Dashboard do professor
