@@ -5,7 +5,7 @@ import { KeyboardAvoidingView, Modal, Platform, View } from 'react-native';
 import { Button, Card, ErrorText, Input, T } from '@/components/ui';
 import { api } from '@/lib/api';
 import { errorMessage } from '@/lib/dialog';
-import { fmt0, parseDecimal } from '@/lib/format';
+import { fmt0, isNum, parseDecimal } from '@/lib/format';
 import { isOffline } from '@/lib/offline';
 import type { DayLog } from '@/lib/types';
 import { radius, space, useColors } from '@/theme';
@@ -29,6 +29,11 @@ export function EnergyCard({ day, onChanged }: { day: DayLog; onChanged: () => v
   const target = day.targets?.kcal ?? null;
   const source = day.targets?.kcalSource ?? null;
   const b = energy?.breakdown;
+  const hasBase = isNum(b?.baseKcal);
+  const hasExercise = isNum(b?.exerciseKcal) && b.exerciseKcal > 0;
+  const goalPct = energy?.goalAdjustmentPct;
+  const goalKcal = energy?.goalAdjustmentKcal;
+  const showGoal = !!energy && isNum(goalPct) && isNum(goalKcal) && goalPct !== 0 && goalKcal !== 0;
 
   async function save(overrideKcal: number | null) {
     setSaving(true);
@@ -80,20 +85,24 @@ export function EnergyCard({ day, onChanged }: { day: DayLog; onChanged: () => v
       {b ? (
         <View style={{ gap: 2 }}>
           <T variant="body" style={{ fontWeight: '600' }}>
-            {b.exerciseKcal > 0
-              ? `Meta base: ${fmt0(b.baseKcal)} kcal + Treino: +${fmt0(b.exerciseKcal)} kcal = ${fmt0(b.dynamicKcal)} kcal`
-              : `Meta base: ${fmt0(b.baseKcal)} kcal · dia sem treino registrado`}
+            {hasBase
+              ? hasExercise
+                ? `Meta base: ${fmt0(b.baseKcal)} kcal + Treino: +${fmt0(b.exerciseKcal)} kcal${isNum(b.dynamicKcal) ? ` = ${fmt0(b.dynamicKcal)} kcal` : ''}`
+                : `Meta base: ${fmt0(b.baseKcal)} kcal · dia sem treino registrado`
+              : 'Meta base indisponível'}
           </T>
-          {energy && energy.goalAdjustmentPct !== 0 && energy.tdeeKcal !== null ? (
+          {showGoal ? (
             <T variant="body" style={{ fontWeight: '600' }}>
-              {`Objetivo${energy.goalKey ? ` (${GOAL_SHORT[energy.goalKey]})` : ''}: ${energy.goalAdjustmentPct > 0 ? '+' : '−'}${Math.abs(energy.goalAdjustmentPct)}% = ${energy.goalAdjustmentKcal > 0 ? '+' : '−'}${fmt0(Math.abs(energy.goalAdjustmentKcal))} kcal → ${fmt0(b.dynamicKcal)} kcal`}
+              {`Objetivo${energy.goalKey ? ` (${GOAL_SHORT[energy.goalKey]})` : ''}: ${goalPct > 0 ? '+' : '−'}${fmt0(Math.abs(goalPct))}% = ${goalKcal > 0 ? '+' : '−'}${fmt0(Math.abs(goalKcal))} kcal${isNum(b.dynamicKcal) ? ` → ${fmt0(b.dynamicKcal)} kcal` : ''}`}
             </T>
           ) : null}
           <T variant="muted">
             {`Metabolismo basal ${fmt0(b.bmr)} × 1,2` +
-              (b.exerciseKcal > 0 ? ` · ${b.trainingMinutes} min de treino (fator ${fmtFactor(b.activityFactor)})` : ' · a meta sobe quando você registrar um treino')}
+              (hasExercise
+                ? `${isNum(b.trainingMinutes) ? ` · ${fmt0(b.trainingMinutes)} min de treino` : ''}${isNum(b.activityFactor) ? ` (fator ${fmtFactor(b.activityFactor)})` : ''}`
+                : ' · a meta sobe quando você registrar um treino')}
           </T>
-          {source && source !== 'dynamic' ? <T variant="muted">{`A meta exibida acima é ${SOURCE_LABEL[source]}; o cálculo do perfil seria ${fmt0(b.dynamicKcal)} kcal.`}</T> : null}
+          {source && source !== 'dynamic' && isNum(b.dynamicKcal) ? <T variant="muted">{`A meta exibida acima é ${SOURCE_LABEL[source]}; o cálculo do perfil seria ${fmt0(b.dynamicKcal)} kcal.`}</T> : null}
         </View>
       ) : energy && energy.missing.length > 0 ? (
         <>

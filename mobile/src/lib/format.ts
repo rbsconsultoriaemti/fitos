@@ -38,8 +38,12 @@ export function parseDecimal(text: string): number | null {
 
 const nf0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 const nf1 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
-export const fmt0 = (n: number) => nf0.format(n);
-export const fmt1 = (n: number) => nf1.format(n);
+/** Número finito de verdade (rejeita NaN, Infinity, null e undefined). */
+export const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
+
+// Nunca mostra "NaN": valor inválido vira "—".
+export const fmt0 = (n: number | null | undefined) => (isNum(n) ? nf0.format(n) : '—');
+export const fmt1 = (n: number | null | undefined) => (isNum(n) ? nf1.format(n) : '—');
 
 export function mmss(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
