@@ -27,7 +27,7 @@ Não há outros desenvolvedores. Cada sessão começa lendo este arquivo.
 | Assinaturas    | RevenueCat                                      |
 | Auth           | JWT (access 15min) + refresh token (30 dias)    |
 | Storage fotos  | AWS S3                                          |
-| Deploy MVP     | Railway                                         |
+| Deploy MVP     | VPS própria (Docker + Traefik)                  |
 | Deploy escala  | AWS                                             |
 | Repositório    | GitHub                                          |
 
@@ -205,4 +205,11 @@ Eu produzo o diff exato para você colar nos arquivos STATUS.md e PROXIMOS_PASSO
 - Módulos prontos: Auth, Musculação, Nutrição (completo com IA)
 - App do aluno: funcionando com onboarding, treino offline, nutrição, água, notificações
 - VPS: online em fitos.rbsconsulting.com.br com HTTPS
+- Produção: backend roda SOMENTE em Docker (container `fitos-fitos-api-1`), roteado pelo Traefik. PM2 desativado.
+- Deploy na VPS (detalhes em DEPLOY_VPS.md): `cd /var/www/fitos && git pull`, depois (só se houver migration nova)
+  `DATABASE_URL="postgres://fitos:$(cat /root/fitos_db_pass.txt)@127.0.0.1:5432/fitos" npm run --prefix backend migrate:up`,
+  e por fim `docker compose up -d --build`
+- Logs: `docker logs fitos-fitos-api-1 --tail 50` e `docker logs fitos-ai-service-1 --tail 50`
+- App mobile em produção: APK release gerado localmente (`C:x\mobilendroid`: `.\gradlew.bat assembleRelease`)
+- O projeto vive em `C:x`
 - Próximo: Dashboard do professor
