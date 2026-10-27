@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card, ErrorText, T } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -13,6 +14,7 @@ const km = (n: number) => `${fmt1(n)} km`;
 const min = (n: number) => `${n} min`;
 
 export default function LogDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [log, setLog] = useState<LogDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +28,7 @@ export default function LogDetailScreen() {
   const when = log ? new Date(log.performedAt).toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' }) : '';
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: insets.bottom + space.lg }}>
       <ErrorText>{error}</ErrorText>
       {log ? (
         <>

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Card, Chip, Input, T } from '@/components/ui';
 import { confirm } from '@/lib/dialog';
@@ -278,6 +279,7 @@ function IconButton({ name, onPress, disabled, label }: { name: 'chevron-up' | '
 }
 
 function ExercisePicker({ visible, catalog, onClose, onPick }: { visible: boolean; catalog: Exercise[]; onClose: () => void; onPick: (e: Exercise) => void }) {
+  const insets = useSafeAreaInsets();
   const c = useColors();
   const [q, setQ] = useState('');
   const [group, setGroup] = useState<string | null>(null);
@@ -288,7 +290,7 @@ function ExercisePicker({ visible, catalog, onClose, onPick }: { visible: boolea
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
-        <View style={{ padding: space.lg, paddingTop: space.xl * 1.5, gap: space.md, flex: 1 }}>
+        <View style={{ padding: space.lg, paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.lg, gap: space.md, flex: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <T variant="h2">Escolher exercício</T>
             <Button title="Fechar" kind="ghost" onPress={onClose} />

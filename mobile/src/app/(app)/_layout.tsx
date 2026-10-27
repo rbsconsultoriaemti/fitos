@@ -1,5 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { Pressable } from 'react-native';
 
 import { api } from '@/lib/api';
 import { askPermissionOnFirstOpen, rescheduleAll, rescheduleOnForeground } from '@/lib/notifications';
@@ -30,7 +32,23 @@ export default function AppLayout() {
   }, [user]);
 
   return (
-    <Stack screenOptions={{ headerStyle: { backgroundColor: c.card }, headerTintColor: c.text, contentStyle: { backgroundColor: c.bg } }}>
+    <Stack
+      screenOptions={{
+        // Barra de navegação estilo iOS: título centralizado semibold 17, chevron de voltar, mesmo fundo da tela.
+        headerStyle: { backgroundColor: c.bg },
+        headerTintColor: c.primary,
+        headerTitleAlign: 'center',
+        headerTitleStyle: { color: c.text, fontSize: 17, fontWeight: '600' },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: c.bg },
+        headerLeft: ({ canGoBack }) =>
+          canGoBack ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Voltar" hitSlop={12} onPress={() => router.back()} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginLeft: -4 })}>
+              <Ionicons name="chevron-back" size={28} color={c.primary} />
+            </Pressable>
+          ) : null,
+      }}
+    >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="edit-plan" options={{ title: 'Editar plano' }} />

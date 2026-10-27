@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, BackHandler, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Card, Chip, ErrorText, Input, ProgressBar, T } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -57,6 +58,7 @@ function toggle<T extends string>(list: T[], item: T, exclusive?: T): T[] {
 }
 
 export default function Onboarding() {
+  const insets = useSafeAreaInsets();
   const c = useColors();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<OnboardingForm>(emptyForm());
@@ -195,7 +197,7 @@ export default function Onboarding() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={{ paddingTop: Platform.OS === 'web' ? space.lg : 48, paddingHorizontal: space.lg, gap: space.sm, maxWidth: 640, width: '100%', alignSelf: 'center' }}>
+      <View style={{ paddingTop: Platform.OS === 'web' ? space.lg : insets.top + space.md, paddingHorizontal: space.lg, gap: space.sm, maxWidth: 640, width: '100%', alignSelf: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <T variant="label">{`Etapa ${step} de ${LAST_STEP} · ${STEP_TITLES[step - 1]}`}</T>
           <Pressable accessibilityRole="button" hitSlop={8} onPress={later}>
@@ -207,7 +209,7 @@ export default function Onboarding() {
 
       <ScrollView
         ref={scroll}
-        contentContainerStyle={{ padding: space.lg, gap: space.lg, maxWidth: 640, width: '100%', alignSelf: 'center' }}
+        contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.lg, maxWidth: 640, width: '100%', alignSelf: 'center' }}
         keyboardShouldPersistTaps="handled"
       >
         {step === 1 ? <StepPersonal form={form} set={set} /> : null}

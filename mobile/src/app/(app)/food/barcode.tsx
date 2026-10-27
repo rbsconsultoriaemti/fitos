@@ -2,6 +2,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Linking, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, ErrorText, Input, T } from '@/components/ui';
 import { ApiError } from '@/lib/api';
@@ -10,6 +11,7 @@ import { findFoodByBarcode, isOffline, rememberFood } from '@/lib/offline';
 import { radius, space, useColors } from '@/theme';
 
 export default function Barcode() {
+  const insets = useSafeAreaInsets();
   const c = useColors();
   const { meal, date } = useLocalSearchParams<{ meal?: string; date?: string }>();
   const [permission, requestPermission] = useCameraPermissions();
@@ -63,7 +65,7 @@ export default function Barcode() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.lg }} keyboardShouldPersistTaps="handled">
       {!permission ? (
         <T variant="muted">Verificando a câmera…</T>
       ) : permission.granted ? (

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Highlight } from '@/components/highlight';
 import { Button, Card, ErrorText, Input, T } from '@/components/ui';
@@ -15,6 +16,7 @@ import { space, useColors } from '@/theme';
 const DEBOUNCE_MS = 350;
 
 export default function FoodSearch() {
+  const insets = useSafeAreaInsets();
   const c = useColors();
   const { meal, date, mode } = useLocalSearchParams<{ meal?: string; date?: string; mode?: string }>();
   const [q, setQ] = useState('');
@@ -71,7 +73,7 @@ export default function FoodSearch() {
   const list = searching ? foods : recent;
 
   return (
-    <View style={{ flex: 1, padding: space.lg, gap: space.md }}>
+    <View style={{ flex: 1, padding: space.lg, paddingBottom: insets.bottom + space.lg, gap: space.md }}>
       <View style={{ flexDirection: 'row', gap: space.md, alignItems: 'flex-end' }}>
         <View style={{ flex: 1 }}>
           <Input

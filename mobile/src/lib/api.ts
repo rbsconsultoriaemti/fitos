@@ -19,6 +19,8 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly code: string,
     message: string,
+    /** Campos extras da resposta de erro (ex.: `resetsAt` e `limit` no 429 `quota_exceeded`). */
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -137,7 +139,7 @@ export async function api<T>(
     const issue = data?.issues?.[0];
     const message =
       data?.message ?? (issue ? `${issue.path?.join('.') || 'campo'}: ${issue.message}` : `Erro ${res.status}`);
-    throw new ApiError(res.status, data?.error ?? 'error', message);
+    throw new ApiError(res.status, data?.error ?? 'error', message, data && typeof data === 'object' ? data : undefined);
   }
   return data as T;
 }

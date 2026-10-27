@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Card, Chip, ErrorText, Input, T } from '@/components/ui';
 import { errorMessage, notify } from '@/lib/dialog';
@@ -12,6 +13,7 @@ import { space, useColors } from '@/theme';
 type Mode = 'grams' | 'portion';
 
 export default function Quantity() {
+  const insets = useSafeAreaInsets();
   const c = useColors();
   const { foodId, meal, date } = useLocalSearchParams<{ foodId: string; meal?: string; date?: string }>();
   const [food, setFood] = useState<Food | null>(null);
@@ -87,7 +89,7 @@ export default function Quantity() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.lg }} keyboardShouldPersistTaps="handled">
         <T variant="title">{foodLabel(food)}</T>
         <ErrorText>{error}</ErrorText>
 

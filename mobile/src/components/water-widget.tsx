@@ -11,7 +11,6 @@ import { radius, space, useColors } from '@/theme';
 
 const GLASS_W = 72;
 const GLASS_H = 104;
-const WATER_BLUE = '#38BDF8';
 
 /** Copo que vai enchendo (a altura da água anima até o percentual de hoje). */
 function Glass({ percent }: { percent: number }) {
@@ -38,7 +37,7 @@ function Glass({ percent }: { percent: number }) {
         justifyContent: 'flex-end',
       }}
     >
-      <Animated.View style={{ height, backgroundColor: WATER_BLUE, opacity: 0.9 }} />
+      <Animated.View style={{ height, backgroundColor: c.water, opacity: 0.9 }} />
     </View>
   );
 }

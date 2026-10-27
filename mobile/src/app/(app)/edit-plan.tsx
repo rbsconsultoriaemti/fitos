@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fromPlan, PlanEditor, toBody, type EditDay } from '@/components/plan-editor';
 import { Button, ErrorText, T } from '@/components/ui';
@@ -11,6 +12,7 @@ import type { Exercise, WorkoutPlan } from '@/lib/types';
 import { space, useColors } from '@/theme';
 
 export default function EditPlan() {
+  const insets = useSafeAreaInsets();
   const c = useColors();
   const [plan, setPlan] = useState<WorkoutPlan | null>(null);
   const [days, setDays] = useState<EditDay[]>([]);
@@ -70,14 +72,14 @@ export default function EditPlan() {
     <View style={{ flex: 1 }}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: 120, maxWidth: 640, width: '100%', alignSelf: 'center' }}
+        contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: insets.bottom + 120, maxWidth: 640, width: '100%', alignSelf: 'center' }}
       >
         <T variant="muted">{plan.title}</T>
         <PlanEditor days={days} setDays={setDays} catalog={catalog} />
         <ErrorText>{error}</ErrorText>
       </ScrollView>
 
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: space.lg, backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.border }}>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: space.lg, paddingBottom: insets.bottom + space.lg, backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.border }}>
         <Button title="Salvar alterações" onPress={save} loading={saving} />
       </View>
 

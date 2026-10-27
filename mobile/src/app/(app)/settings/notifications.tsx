@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Card, T } from '@/components/ui';
 import { notify } from '@/lib/dialog';
@@ -71,6 +72,7 @@ function Row({ title, hint, value, onValueChange, disabled }: { title: string; h
 }
 
 export default function NotificationSettings() {
+  const insets = useSafeAreaInsets();
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
   const [permission, setPermission] = useState<PermissionState>('undetermined');
   const [scheduled, setScheduled] = useState<number | null>(null);
@@ -106,7 +108,7 @@ export default function NotificationSettings() {
   const blocked = permission !== 'granted';
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, maxWidth: 640, width: '100%', alignSelf: 'center' }}>
+    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.lg, maxWidth: 640, width: '100%', alignSelf: 'center' }}>
       {permission === 'unavailable' ? (
         <Card style={{ gap: space.sm }}>
           <T variant="h2">Notificações indisponíveis</T>

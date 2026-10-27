@@ -19,12 +19,12 @@ import { radius, space, useColors } from '@/theme';
 type Variant = 'title' | 'h2' | 'body' | 'muted' | 'label' | 'number';
 
 const textStyles: Record<Variant, TextStyle> = {
-  title: { fontSize: 28, fontWeight: '800' },
-  h2: { fontSize: 18, fontWeight: '700' },
-  body: { fontSize: 16 },
-  muted: { fontSize: 14 },
+  title: { fontSize: 34, fontWeight: '700' },
+  h2: { fontSize: 20, fontWeight: '600' },
+  body: { fontSize: 17 },
+  muted: { fontSize: 15 },
   label: { fontSize: 13, fontWeight: '600' },
-  number: { fontSize: 32, fontWeight: '800' },
+  number: { fontSize: 32, fontWeight: '700' },
 };
 
 export function T({
@@ -65,8 +65,8 @@ export function Button({
   style?: StyleProp<ViewStyle>;
 }) {
   const c = useColors();
-  const bg = { primary: c.primary, secondary: c.card, danger: c.danger, ghost: 'transparent' }[kind];
-  const fg = { primary: c.onPrimary, secondary: c.text, danger: '#FFFFFF', ghost: c.primary }[kind];
+  const bg = { primary: c.primary, secondary: c.primarySoft, danger: 'transparent', ghost: 'transparent' }[kind];
+  const fg = { primary: c.onPrimary, secondary: c.primary, danger: c.danger, ghost: c.primary }[kind];
   const off = disabled || loading;
   return (
     <Pressable
@@ -75,11 +75,12 @@ export function Button({
       disabled={off}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: bg, borderColor: kind === 'secondary' ? c.border : bg, opacity: off ? 0.5 : pressed ? 0.85 : 1 },
+        kind === 'ghost' && styles.buttonGhost,
+        { backgroundColor: bg, opacity: off ? 0.4 : pressed ? 0.6 : 1 },
         style,
       ]}
     >
-      {loading ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontSize: 16, fontWeight: '700' }}>{title}</Text>}
+      {loading ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontSize: 17, fontWeight: '600' }}>{title}</Text>}
     </Pressable>
   );
 }
@@ -89,7 +90,7 @@ export function Input({ label, error, style, ...props }: TextInputProps & { labe
   const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: space.xs }}>
-      {label ? <T variant="label">{label}</T> : null}
+      {label ? <Text style={{ color: c.muted, fontSize: 13 }}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={c.muted}
         {...props}
@@ -103,6 +104,7 @@ export function Input({ label, error, style, ...props }: TextInputProps & { labe
         }}
         style={[
           styles.input,
+          (focused || error) && { borderWidth: 1.5 },
           { color: c.text, backgroundColor: c.card, borderColor: error ? c.danger : focused ? c.primary : c.border },
           style,
         ]}
@@ -122,7 +124,7 @@ export function ErrorText({ children }: { children?: string | null }) {
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
-  return <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }, style]}>{children}</View>;
+  return <View style={[styles.card, { backgroundColor: c.card }, style]}>{children}</View>;
 }
 
 export function Chip({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) {
@@ -130,12 +132,12 @@ export function Chip({ label, selected, onPress }: { label: string; selected?: b
   return (
     <Pressable
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         styles.chip,
-        { backgroundColor: selected ? c.primary : c.card, borderColor: selected ? c.primary : c.border },
+        { backgroundColor: selected ? c.primary : c.card, borderColor: selected ? c.primary : c.border, opacity: pressed ? 0.6 : 1 },
       ]}
     >
-      <Text style={{ color: selected ? c.onPrimary : c.text, fontWeight: '600', fontSize: 14 }}>{label}</Text>
+      <Text style={{ color: selected ? c.onPrimary : c.text, fontWeight: '600', fontSize: 15 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -158,6 +160,12 @@ export function ProgressBar({ value, color, height = 8 }: { value: number; color
   );
 }
 
+/** Divisor fino (0,5 px) entre linhas de um card agrupado. */
+export function Separator({ style }: { style?: StyleProp<ViewStyle> }) {
+  const c = useColors();
+  return <View style={[{ height: StyleSheet.hairlineWidth, backgroundColor: c.border }, style]} />;
+}
+
 export function Empty({ title, hint }: { title: string; hint?: string }) {
   return (
     <View style={{ alignItems: 'center', padding: space.xl, gap: space.sm }}>
@@ -175,30 +183,35 @@ export function Empty({ title, hint }: { title: string; hint?: string }) {
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
-    borderRadius: radius.md,
-    borderWidth: 1,
+    minHeight: 50,
+    borderRadius: radius.button,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.lg,
   },
-  input: {
-    minHeight: 48,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    paddingHorizontal: space.md,
-    fontSize: 16,
+  buttonGhost: {
+    minHeight: 44,
   },
+  input: {
+    minHeight: 44,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: space.md,
+    fontSize: 17,
+  },
+  // Card agrupado do iOS: sem sombra; a borda fica transparente para telas que a destacam com `borderColor`.
   card: {
     borderRadius: radius.lg,
     borderWidth: 1,
-    padding: space.lg,
+    borderColor: 'transparent',
+    paddingHorizontal: space.lg,
+    paddingVertical: space.lg,
     gap: space.md,
   },
   chip: {
     borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: space.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: space.lg,
     paddingVertical: space.sm,
   },
 });

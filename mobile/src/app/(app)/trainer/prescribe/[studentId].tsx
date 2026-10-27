@@ -1,6 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { emptyDay, fromSuggestion, PlanEditor, toBody, type EditDay } from '@/components/plan-editor';
 import { Button, Card, ErrorText, Input, T } from '@/components/ui';
@@ -14,6 +15,7 @@ type Step = 'choose' | 'suggesting' | 'edit' | 'review';
 
 /** Prescrição de treino: escolher método (IA ou manual) -> editar -> revisar e enviar. */
 export default function Prescribe() {
+  const insets = useSafeAreaInsets();
   const { studentId } = useLocalSearchParams<{ studentId: string }>();
   const c = useColors();
   const [name, setName] = useState('');
@@ -95,7 +97,7 @@ export default function Prescribe() {
       <Stack.Screen options={{ title: name ? `Treino de ${first}` : 'Prescrever treino' }} />
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xl * 2, maxWidth: 640, width: '100%', alignSelf: 'center' }}
+        contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: insets.bottom + space.xl * 2, maxWidth: 640, width: '100%', alignSelf: 'center' }}
       >
         {step === 'choose' ? (
           <>

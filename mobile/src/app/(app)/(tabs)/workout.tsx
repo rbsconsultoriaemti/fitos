@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, TextInput, Vibration, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExerciseMedia } from '@/components/exercise-media';
 import { Button, Card, Chip, Empty, ErrorText, T } from '@/components/ui';
@@ -34,6 +35,7 @@ const initial = (s: WorkoutSet): Progress => ({
 const isCardio = (s: WorkoutSet) => s.reps === null;
 
 export default function Workout() {
+  const insets = useSafeAreaInsets();
   const c = useColors();
   const [plan, setPlan] = useState<WorkoutPlan | null | undefined>(undefined);
   const [dayId, setDayId] = useState<string | null>(null);
@@ -320,7 +322,7 @@ export default function Workout() {
 
       <Modal visible={finishing} transparent animationType="slide" onRequestClose={() => setFinishing(false)}>
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000066' }}>
-          <View style={{ backgroundColor: c.card, padding: space.xl, gap: space.lg, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg }}>
+          <View style={{ backgroundColor: c.card, padding: space.xl, paddingBottom: insets.bottom + space.xl, gap: space.lg, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg }}>
             <T variant="h2">Como foi o treino?</T>
             <T variant="muted">Esforço percebido (1 leve · 10 máximo)</T>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>

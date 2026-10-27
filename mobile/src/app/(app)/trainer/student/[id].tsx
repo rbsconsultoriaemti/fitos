@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
 import { Avatar, StatusBadge } from '@/components/trainer-home';
@@ -46,6 +47,7 @@ function AdherenceChart({ weeks }: { weeks: TrainerStudentDetail['weeklyAdherenc
 }
 
 export default function StudentProfile() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const c = useColors();
   const [data, setData] = useState<TrainerStudentDetail | null>(null);
@@ -74,7 +76,7 @@ export default function StudentProfile() {
     <>
       <Stack.Screen options={{ title: s?.name ?? 'Aluno' }} />
       <ScrollView
-        contentContainerStyle={{ padding: space.lg, gap: space.lg, maxWidth: 640, width: '100%', alignSelf: 'center' }}
+        contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.lg, maxWidth: 640, width: '100%', alignSelf: 'center' }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

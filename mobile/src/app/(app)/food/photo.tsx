@@ -4,11 +4,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Card, Chip, Input, T } from '@/components/ui';
 import { api } from '@/lib/api';
 import { errorMessage, notify } from '@/lib/dialog';
 import { consumePickedFood } from '@/lib/food-pick';
+import { fetchQuotas, photoQuotaText, type QuotaStatus } from '@/lib/quotas';
 import { defaultMeal, fmt0, foodLabel, localDate, MEAL_LABELS, MEAL_ORDER, parseDecimal } from '@/lib/format';
 import { addFoodLogs, foodToCandidate, isOffline, type FoodLogDraft } from '@/lib/offline';
 import type { FoodCandidate, MealType, Macros, RecognitionResult } from '@/lib/types';
@@ -34,6 +36,7 @@ const ADD_NEW = 'add-new';
 const DEFAULT_ADDED_GRAMS = '100';
 
 export default function Photo() {
+  const insets = useSafeAreaInsets();
   const c = useColors();
   const { meal, date } = useLocalSearchParams<{ meal?: string; date?: string }>();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -46,6 +49,7 @@ export default function Photo() {
   const [hints, setHints] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quota, setQuota] = useState<QuotaStatus | null>(null);
   const pickFor = useRef<string | null>(null);
   const started = useRef(false);
 
@@ -103,6 +107,7 @@ export default function Photo() {
       setError(isOffline(err) ? 'Sem conexão: o reconhecimento por foto precisa de internet.' : errorMessage(err));
     } finally {
       setAnalyzing(false);
+      loadQuota();
     }
   }
 
@@ -120,6 +125,16 @@ export default function Photo() {
       source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
     if (!result.canceled && result.assets[0]) pick(result.assets[0]);
   }
+
+  // Contador de fotos restantes. Sem resposta (offline) a linha simplesmente não aparece.
+  const loadQuota = useCallback(() => {
+    fetchQuotas()
+      .then((q) => setQuota(q.photo_recognition))
+      .catch(() => setQuota(null));
+  }, []);
+  useEffect(() => {
+    loadQuota();
+  }, [loadQuota]);
 
   // Depois de 10 s de análise, avisa que ainda está trabalhando.
   useEffect(() => {
@@ -213,7 +228,7 @@ export default function Photo() {
   void meal; // a refeição é escolhida abaixo, pré-selecionada pelo horário
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.lg }} keyboardShouldPersistTaps="handled">
       <T variant="muted">Fotografe seu prato inteiro de cima, com boa iluminação.</T>
       <T variant="muted">Quanto mais visível cada alimento, mais precisa será a análise.</T>
 
@@ -225,6 +240,10 @@ export default function Photo() {
         <Button title={photoUri ? 'Tirar outra' : 'Tirar foto'} kind="secondary" style={{ flex: 1 }} onPress={() => capture('camera')} disabled={analyzing} />
         <Button title="Galeria" kind="secondary" style={{ flex: 1 }} onPress={() => capture('library')} disabled={analyzing} />
       </View>
+
+      {quota && !rows && !analyzing ? (
+        <T style={{ fontWeight: '600', color: quota.remaining === 0 ? c.danger : c.text }}>{photoQuotaText(quota)}</T>
+      ) : null}
 
       {pending && !rows && !analyzing ? (
         <View style={{ gap: space.sm }}>
@@ -246,7 +265,7 @@ export default function Photo() {
         </View>
       ) : null}
 
-      {pending && !rows && !analyzing && !error ? <Button title="Analisar foto" onPress={analyze} /> : null}
+      {pending && !rows && !analyzing && !error ? <Button title="Analisar foto" onPress={analyze} disabled={quota?.remaining === 0} /> : null}
 
       {analyzing ? (
         <View style={{ alignItems: 'center', gap: space.sm, paddingVertical: space.md }}>
@@ -259,7 +278,7 @@ export default function Photo() {
       {error ? (
         <View style={{ gap: space.md }}>
           <Text style={{ color: c.danger, fontSize: 15 }}>{error}</Text>
-          {pending ? <Button title="Tentar novamente" onPress={analyze} /> : null}
+          {pending ? <Button title="Tentar novamente" onPress={analyze} disabled={quota?.remaining === 0} /> : null}
         </View>
       ) : null}
 
