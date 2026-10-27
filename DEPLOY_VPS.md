@@ -18,6 +18,8 @@ PostgreSQL 16 (host)      ← banco "fitos", usuário "fitos", 127.0.0.1:5432
 /root/fitos_db_pass.txt   ← senha do banco (só root, chmod 600)
 ```
 
+> O `docker-compose.yml` da VPS e o Dockerfile da API não estão neste repositório (não verificado); o `ai-service/Dockerfile` está. Os comandos abaixo são os informados pelo dono do projeto.
+
 ## Fluxo único de deploy
 
 ```bash
@@ -63,7 +65,7 @@ A URL da API vem de `mobile/.env` (`EXPO_PUBLIC_API_URL=https://fitos.rbsconsult
 | O que | Comando |
 |---|---|
 | Status dos containers | `docker compose ps` |
-| Reiniciar a API | `docker compose restart fitos-api` |
+| Reiniciar a API | `docker compose restart <serviço>` (nome do serviço no compose da VPS: não verificado; veja com `docker compose ps`) |
 | Status do banco | `systemctl status postgresql` |
 
 ---

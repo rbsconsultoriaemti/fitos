@@ -75,10 +75,10 @@ Reconhecimento por foto
 ## Pendente
 - **Teste real com o Claude** (precisa de `ANTHROPIC_API_KEY`): só testei com stub; ver `ai-service/STATUS.md`
 - Armazenar a foto no S3 (`food_logs.photo_url` existe mas fica nulo; sem credenciais AWS ainda)
-- Cota por usuário em `/recognize`: implementada (módulo `quotas`, 10 fotos/30 dias no gratuito, 20/24 h no pago; 429 `quota_exceeded`). Consome só depois do sucesso da IA. Falta o contador no app e o rate limit global (Redis)
+- Cota por usuário em `/recognize`: implementada (módulo `quotas`, 10 fotos/30 dias no gratuito, 20/24 h no pago; 429 `quota_exceeded`). Consome só depois do sucesso da IA. O contador no app existe (`mobile/src/lib/quotas.ts`, `food/photo.tsx`; sem teste no aparelho). Falta o rate limit global (Redis)
 - Colisão de nome de cardápio: só "Maria mole" repete (duplicada na própria TACO); revisar com nutricionista as regras de `formatFoodName` (ex.: "cru" mantido em carnes/arroz/feijão de propósito)
 - Água: sem tela de histórico/gráfico; meta fixa em 2 L/2,5 L (poderia usar peso e treino); desfazer registro já enviado exige internet
-- Agendar o job noturno (Railway cron) e cobrir mais de um dia / usuários sem log
+- Agendar o job noturno (na VPS Docker; forma de agendar ainda não definida) e cobrir mais de um dia / usuários sem log
 - Rascunho de dieta por IA (`source='ai'`, Claude API) → nutricionista revisa → aprova
 - Porções para o restante da TACO (feijão em concha, frutas em unidade, etc.): importar a POF/IBGE ou revisar com nutricionista
 - `recognition.service.ts` ainda usa o casamento simples por palavras; poderia reutilizar a busca fuzzy de `listFoods`

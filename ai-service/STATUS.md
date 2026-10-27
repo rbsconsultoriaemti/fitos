@@ -1,6 +1,6 @@
 # STATUS — ai-service
 
-- Estado: serviço FastAPI com reconhecimento de alimentos por foto (Claude Vision, Anthropic SDK). 10 testes pytest passam (SDK mockado). Roda em container na VPS; a chave `ANTHROPIC_API_KEY` já está configurada no backend da VPS, mas **a chamada real à Claude Vision ainda não foi confirmada** neste repositório.
+- Estado: serviço FastAPI com reconhecimento de alimentos por foto (Claude Vision, Anthropic SDK). Testes pytest com SDK mockado (última contagem registrada: 10; não reexecutados nesta atualização). Roda em container na VPS; a chave `ANTHROPIC_API_KEY` já está configurada no backend da VPS, mas **a chamada real à Claude Vision ainda não foi confirmada** neste repositório.
 - Mudanças recentes: removido o parâmetro `temperature` da chamada `messages.create()` (a API recusava); novo campo opcional `hints` (ingredientes informados pelo usuário).
 
 ## Rodar
@@ -11,7 +11,7 @@ copy .env.example .env   # preencher ANTHROPIC_API_KEY e AI_SERVICE_TOKEN
 .venv\Scripts\uvicorn app.main:app --port 8000
 .venv\Scripts\python -m pytest -q
 ```
-O `.env` não é carregado automaticamente: exporte as variáveis (ou rode via Railway) antes do uvicorn.
+O `.env` não é carregado automaticamente: exporte as variáveis antes do uvicorn (em produção o container recebe as variáveis do compose da VPS; não verificado).
 
 ## Endpoints
 - `GET /health`
@@ -25,7 +25,8 @@ O `.env` não é carregado automaticamente: exporte as variáveis (ou rode via R
 - Sem `AI_SERVICE_TOKEN` configurado o serviço recusa tudo (não fica aberto por engano).
 
 ## Pendente
+- Troca de modelo `claude-opus-4-5` → `claude-haiku-5-5` (custo) decidida em CLAUDE.md, mas só depois de comparar a qualidade em fotos reais; o modelo atual segue sendo `claude-opus-4-5`
 - **Validar com chave real** (`ANTHROPIC_API_KEY`): só testei com o SDK mockado; confirmar que o id `claude-opus-4-5` está disponível na sua conta e medir custo/latência por foto
 - Medir qualidade das estimativas de gramas com fotos reais de pratos brasileiros
-- Carregar `.env` (python-dotenv) e Dockerfile/Procfile para o deploy no Railway
+- Carregar `.env` automaticamente (python-dotenv não está em `requirements.txt`). O `Dockerfile` já existe (python 3.12-slim, usuário sem root, healthcheck em `/health`); o serviço roda como container `fitos-ai-service-1` na VPS
 - Microserviço de texto (Claude API: treino/dieta) — ainda não iniciado

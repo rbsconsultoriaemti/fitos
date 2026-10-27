@@ -1,9 +1,16 @@
 # SESSÃO ATUAL
 
-Objetivo: nutrição completa no app (foto, nomes de cardápio, água) com lembretes, pronta para teste em aparelho.
+Objetivo desta sessão: cotas por plano, painel do professor, visual estilo iOS e consolidação da documentação.
 
-Feito: foto → calorias corrigida (base64, ingredientes, edição inline e "+ Adicionar alimento"), `displayName` e busca por estado, leitor de código de barras sem loop, widget de água com fila offline (migration 016), notificações locais de treino/refeição/água com tela de configurações.
-Próximo: atualizar a VPS (migrate até 016, restart, rebuild do ai-service), gerar APK novo e testar tudo em aparelho. Ver `PROXIMOS_PASSOS.md`.
+Feito (no código, commitado até 436d65d; `tsc` e testes do backend OK, nada testado em aparelho):
+- Cotas por plano no backend: migration 018 (`usage_quotas`), `quotas.service.ts` com janela deslizante, `GET /quotas`, 429 `quota_exceeded`, consumo só depois do sucesso da IA; limite provisório em memória do onboarding removido. Teste: `npm run test:quotas`.
+- Cotas no app: contador de fotos restantes e aviso de liberação em `lib/quotas.ts` e `food/photo.tsx`, com `ApiError.details` em `lib/api.ts`.
+- Painel do professor: `/trainer/students[/:id]`, `suggest-plan`, telas e prescrição (`npm run test:trainer`).
+- Visual estilo iOS (tema azul, `ui.tsx`, navegação, títulos grandes nas abas, listas agrupadas com divisores) e safe area nas telas de pilha, incluindo "Foto → calorias".
+- Deploy documentado só em Docker + Traefik (PM2 desativado) e seção "Reconstruir o servidor do zero" no DEPLOY_VPS.md.
 
-## Dashboard do professor
-Backend `/trainer/students[/:id]` + telas mobile prontas e verificadas (tsc, export, `npm run test:trainer`). Falta testar no aparelho e subir na VPS (sem migration nova).
+Próxima sessão — objetivo: fechar o ciclo de teste e subir para a VPS, depois começar o módulo de Corrida.
+1. VPS: `git pull`, migrations pendentes (até a 018), `docker compose up -d --build` (DEPLOY_VPS.md).
+2. Gerar o APK release (`gradlew.bat assembleRelease`) e testar no aparelho (lista em PROXIMOS_PASSOS.md, "Fazer agora").
+3. Tratar o 429 `quota_exceeded` no onboarding do app; versionar o `docker-compose.yml` da VPS (peça o conteúdo ao dono do projeto).
+4. Comparar `claude-haiku-5-5` com `claude-opus-4-5` em fotos reais antes de trocar o modelo; limpar os exercícios de teste "Supino 562029" e "Agachamento 562029" do banco local.

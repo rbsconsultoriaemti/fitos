@@ -5,13 +5,15 @@ Plataforma mobile que conecta alunos a profissionais de saúde e performance. Co
 ## Estrutura
 
 - `backend/` — API Node.js + TypeScript (Express)
-- `ai-service/` — microserviço Python + FastAPI (a construir)
-- `mobile/` — React Native + Expo (a construir)
+- `ai-service/` — microserviço Python + FastAPI (foto → calorias com Claude Vision; Dockerfile)
+- `mobile/` — React Native + Expo (app do aluno e do professor)
+
+Produção: containers Docker (API e ai-service) atrás do Traefik numa VPS; ver [DEPLOY_VPS.md](DEPLOY_VPS.md). Estado e fila de tarefas em [PROXIMOS_PASSOS.md](PROXIMOS_PASSOS.md).
 
 ## Pré-requisitos
 
 - Node.js 20+
-- PostgreSQL 14+ (usa `gen_random_uuid()` nativo)
+- PostgreSQL 14+ (usa `gen_random_uuid()` nativo; as migrations também usam as extensões `pg_trgm` e `unaccent`)
 - Redis (ainda não usado nesta fase)
 
 ## Rodando o backend localmente
@@ -47,7 +49,8 @@ Plataforma mobile que conecta alunos a profissionais de saúde e performance. Co
 | `npm run typecheck` | Checagem de tipos |
 | `npm run migrate:up` / `migrate:down` | Aplica / reverte migrations |
 | `npm run migrate:create -- nome` | Cria nova migration SQL |
+| `npm run test:quotas`, `test:onboarding`, `test:trainer`, `test:recognize` … | Testes ponta a ponta (ver `scripts/` e `package.json`; precisam de banco local) |
 
 ## Migrations
 
-Ficam em `backend/src/database/migrations/` (SQL puro, via `node-pg-migrate`, seções `-- Up Migration` / `-- Down Migration`). Atuais: `users`, `profiles`, `subscriptions`, `invites`.
+Ficam em `backend/src/database/migrations/` (SQL puro, via `node-pg-migrate`, seções `-- Up Migration` / `-- Down Migration`). São 18 (de `001_create-users` a `018_usage-quotas`): usuários, perfis, assinaturas, convites, vínculos profissional→aluno, musculação, nutrição, onboarding, água e cotas. A lista completa está na pasta.

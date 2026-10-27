@@ -1,6 +1,6 @@
 # PRÓXIMOS PASSOS
 
-## Estado atual (último commit: edição inline na foto, widget de água, notificações)
+## Estado atual (último commit: 436d65d — visual iOS, títulos grandes e divisores nas abas)
 
 Feito (detalhes nos STATUS.md de cada módulo):
 1. ~~Auth (cadastro, login, JWT, convites)~~
@@ -12,21 +12,24 @@ Feito (detalhes nos STATUS.md de cada módulo):
 3b. ~~App mobile do aluno: login, Início, Treino offline, Progresso, Perfil, Nutrição, Onboarding de 7 etapas~~
 3c. ~~Onboarding com plano de treino e plano alimentar gerados pela Claude API~~
 3d. ~~Notificações locais: treino (só dias com treino), 5 refeições, água pelo consumo real (para em 80% da meta; urgente às 16h abaixo de 50%)~~, com tela de configurações
-3e. ~~Deploy na VPS (Nginx + PM2 + PostgreSQL), ai-service em container~~
+3e. ~~Deploy na VPS: API e ai-service em containers Docker, roteados pelo Traefik, PostgreSQL no host (PM2 e Nginx desativados; ver DEPLOY_VPS.md)~~
+3f. ~~Painel do professor (backend `/trainer/*` + telas + prescrição manual/por IA)~~ — falta testar no aparelho e subir na VPS
+3g. Cotas por plano: backend pronto (migration 018); app com contador de fotos (escrito, `tsc` OK, sem teste no aparelho)
+3h. Visual estilo iOS (tema azul, títulos grandes, divisores) e safe area nas telas de pilha — aplicado no código, `tsc` OK, pendente de verificação no aparelho
 
 ## Fazer agora (precisa de você)
-- [ ] VPS: `git pull`, `npm ci && npm run build`, `npm run migrate:up` (até a **016**), `pm2 restart fitos`; reconstruir o container do ai-service (sem `temperature`, com `hints`)
-- [ ] APK novo (`npx eas-cli@latest build --platform android --profile preview`): módulos nativos expo-camera, expo-image-picker e **expo-notifications** + telas novas. Sem isso o app instalado mostra nomes antigos e não agenda lembretes
-- [ ] Testar em aparelho: foto → calorias (editar, adicionar), código de barras, widget de água offline/online, notificação de teste (Configurações > Notificações), onboarding completo
+- [ ] VPS (fluxo único em DEPLOY_VPS.md): `cd /var/www/fitos && git pull`; `migrate:up` com a `DATABASE_URL` do DEPLOY_VPS.md para aplicar o que faltar até a **018** (quais já rodaram na VPS: não verificado); `docker compose up -d --build` (reconstrói API e ai-service, que precisa do código sem `temperature` e com `hints`). Sem `pm2`, `npm ci` ou `chown` no host
+- [ ] APK novo release gerado localmente (`cd C:\fx\mobile\android; .\gradlew.bat assembleRelease`): módulos nativos expo-camera, expo-image-picker e **expo-notifications**, telas novas, tema azul e splash/cor de notificação novas. Sem isso o app instalado mostra nomes antigos e não agenda lembretes
+- [ ] Testar em aparelho: foto → calorias (editar, adicionar, contador de cotas), código de barras, widget de água offline/online, notificação de teste (Configurações > Notificações), onboarding completo, painel do professor, e o visual novo (botão "Analisar foto" acima da barra do Android, títulos grandes, divisores)
 - [ ] Primeira geração real com a Claude (onboarding e foto): conferir qualidade do prompt (`onboarding/plan-generator.ts`, `ai-service/app/vision.py`), custo e latência
 - [ ] Limpar exercícios de teste do banco local ("Supino 562029", "Agachamento 562029")
 
 ## Roadmap — cotas, custo e assinatura (regras de negócio em CLAUDE.md, "Limites por plano")
 
-Limites: **gratuito** = 10 fotos/mês + 1 plano de treino por IA a cada 3 meses; **pago (R$ 19/mês ou R$ 175/ano)** = 20 fotos/dia + novo plano de treino toda semana.
+Limites: **gratuito** = 10 fotos a cada 30 dias + 1 plano de treino por IA a cada 90 dias (janela deslizante); **pago (R$ 19/mês ou R$ 175/ano)** = 20 fotos/dia + novo plano de treino toda semana.
 
 1. [ ] **Trocar o modelo do reconhecimento de foto** de `claude-opus-4-5` para `claude-haiku-5-5` (`ANTHROPIC_MODEL` no ai-service; custo de ~R$ 0,20 para ~R$ 0,02 por foto). Antes de fixar: comparar a qualidade das estimativas de gramas com fotos reais de pratos brasileiros
-2. [~] **Controle de cotas por plano** — backend FEITO (migration 018, `quotas.service.ts`, `GET /quotas`, 429 `quota_exceeded`, `npm run test:quotas`); falta o app (contador e aviso)
+2. [~] **Controle de cotas por plano** — backend FEITO (migration 018, `quotas.service.ts`, `GET /quotas`, 429 `quota_exceeded`, `npm run test:quotas`). App: contador de fotos e aviso de liberação escritos (`lib/quotas.ts`, `food/photo.tsx`; `tsc` OK, sem teste no aparelho); FALTA avisar no onboarding quando o plano de treino por IA ainda não está liberado (o 429 `quota_exceeded` não é tratado lá)
    - Tabela `usage_quotas` (migration) para rastrear o uso por usuário, recurso (`photo_recognition`, `ai_workout_plan`) e período
    - Middleware que checa a cota ANTES de `POST /nutrition/recognize` e `POST /onboarding/complete` e só consome depois do sucesso (falha da IA não gasta cota)
    - Erro **429** com mensagem amigável e dados do limite (usado, limite, quando renova)
@@ -42,10 +45,11 @@ Limites: **gratuito** = 10 fotos/mês + 1 plano de treino por IA a cada 3 meses;
 - Editar a quantidade de item já registrado; histórico de peso e gráficos no Progresso; histórico/gráfico de água
 - Notificações: horários das refeições seguem o plano alimentar; lembretes de água param se o app ficar 3 dias sem abrir (considerar push remoto)
 - Atribuição do Open Food Facts (ODbL) no app; restringir CORS
-- Preencher `workout_kcal_burned` no job noturno; agendar o job
+- Preencher `workout_kcal_burned` no job noturno; agendar o job (como agendar na VPS Docker: não definido)
+- Versionar no repositório o `docker-compose.yml` da VPS (sem segredos; variáveis do `.env`) e o Dockerfile da API, que hoje só existem na VPS (não verificado); `backend/railway.json` é resquício do plano antigo de deploy no Railway
 - Rascunho de dieta por IA → nutricionista revisa → aprova (fluxo do CLAUDE.md)
 
-## Próximos módulos
+## Próximos módulos (não iniciados)
 4. Corrida
 5. Ciclismo
 6. Psicologia
