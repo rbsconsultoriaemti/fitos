@@ -112,7 +112,11 @@ async function main() {
     check((await call('/portal/me', { token: adminLogin.body.accessToken })).status === 200, 'admin => 200');
     const studentToken = (await call('/auth/login', { method: 'POST', body: { email: student.email, password: PASSWORD } })).body.accessToken;
     r = await call('/portal/me', { token: studentToken });
-    check(r.status === 200 && r.body.role === 'student', 'token de aluno => 200 com role student');
+    check(r.status === 200 && r.body.role === 'student' && r.body.isPlatformAdmin === false, 'token de aluno => 200 com role student e isPlatformAdmin false', r.body);
+    await pool.query('UPDATE users SET is_platform_admin = true WHERE id = $1', [student.id]);
+    r = await call('/portal/me', { token: studentToken });
+    check(r.status === 200 && r.body.role === 'student' && r.body.isPlatformAdmin === true, 'aluno com marcador => 200 com isPlatformAdmin true (mesma sessão)', r.body);
+    await pool.query('UPDATE users SET is_platform_admin = false WHERE id = $1', [student.id]);
 
     console.log('\n— refresh por cookie —');
     r = await call('/portal/refresh', { method: 'POST', headers: cookieHeader(trainerLogin.setCookie) });
@@ -142,6 +146,9 @@ async function main() {
     await pool.query("UPDATE users SET role = 'trainer', is_active = false WHERE id = $1", [trainer.id]);
     check((await call('/portal/me', { token: t2.body.accessToken })).status === 401, 'conta desativada: JWT ainda válido, mas /portal/me => 401');
     check((await login(trainer.email)).status === 401, 'conta desativada não faz login');
+    await pool.query('UPDATE users SET is_platform_admin = true, is_active = false WHERE id = $1', [student.id]);
+    check((await call('/portal/me', { token: studentToken })).status === 401, 'aluno com marcador, mas desativado: /portal/me => 401');
+    check((await login(student.email)).status === 401, 'aluno com marcador, mas desativado, não faz login');
   } finally {
     for (const email of emails) await pool.query('DELETE FROM users WHERE email = $1', [email]).catch(() => undefined);
     await pool.end();

@@ -10,7 +10,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (state.status === 'in') return <Navigate to="/usuarios" replace />;
+  if (state.status === 'in') return <Navigate to="/" replace />;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -19,8 +19,7 @@ export default function Login() {
     try {
       await login(email.trim(), password);
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'portal_forbidden') setError('Esta conta não tem acesso ao portal. Alunos usam o aplicativo.');
-      else if (err instanceof ApiError && err.status === 401) setError('E-mail ou senha incorretos.');
+      if (err instanceof ApiError && err.status === 401) setError('E-mail ou senha incorretos.');
       else setError(err instanceof Error ? err.message : 'Não foi possível entrar.');
     } finally {
       setBusy(false);

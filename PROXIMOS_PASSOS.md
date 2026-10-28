@@ -23,7 +23,7 @@ Feito (detalhes nos STATUS.md de cada módulo):
 
 **Etapa 1 (base) pronta no código, aguardando aprovação para a etapa 2:** `web/` (login, guarda de rota, tela Usuários vazia), `/portal/login|refresh|logout|me` no backend com refresh token em cookie httpOnly, `npm run test:admin-role`, Dockerfile e proposta de labels do Traefik (DEPLOY_VPS.md, "Portal /admin (proposta)"). Detalhes em `web/STATUS.md`. Pendente da etapa 1: validar a interface no navegador e o container na VPS; aplicar as labels no compose real.
 
-**Acesso (decidido depois da etapa 1):** o portal aceita qualquer conta ativa; a permissão é por rota, conferida no banco, com `is_platform_admin` separado de `role`. Passo 1 feito (migration 020, script, middlewares, `/portal/me`); falta o passo 2 (telas) e rodar a migration 020 na VPS (comandos em DEPLOY_VPS.md).
+**Acesso (decidido depois da etapa 1):** o portal aceita qualquer conta ativa; a permissão é por rota, conferida no banco, com `is_platform_admin` separado de `role`. Passo 1 feito (migration 020, script, middlewares, `/portal/me`). Em 28/10/2026 o front deixou de checar papel (tela Início por `/portal/me`; aluno vê aviso curto); falta o passo 2 (telas de negócio, aguardando aprovação) e rodar a migration 020 na VPS (comandos em DEPLOY_VPS.md).
 
 **Segurança, a fazer:** o `cors()` da API está aberto (`backend/src/app.ts`). O portal usa o mesmo domínio e não precisa de CORS; restringir às origens necessárias (o app mobile nativo não depende de CORS) antes do lançamento. Também faltam limite de tentativas de login e `NODE_ENV=production` confirmado na VPS (cookie `Secure`).
 

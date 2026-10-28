@@ -7,8 +7,13 @@ export interface User {
   role: Role;
 }
 
-/** Quem pode usar o portal. É só para a interface: quem decide é o backend (`/portal/*`). */
-export const PORTAL_ROLES: Role[] = ['admin', 'trainer', 'running_coach', 'cycling_coach', 'nutritionist', 'psychologist'];
+/** Papéis de profissional. Só para rotular a conta na tela inicial: quem decide acesso é o backend, rota por rota. */
+export const PROFESSIONAL_ROLES: Role[] = ['trainer', 'running_coach', 'cycling_coach', 'nutritionist', 'psychologist'];
+
+/** Resposta de `GET /portal/me`: a conta conferida no banco. */
+export interface PortalUser extends User {
+  isPlatformAdmin: boolean;
+}
 
 export const ROLE_LABELS: Record<Role, string> = {
   student: 'Aluno',
@@ -105,5 +110,12 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
-/** Verificação real de acesso: o backend confere no banco que a conta está ativa e é admin/profissional. */
-export const fetchPortalUser = () => api<User>('/portal/me');
+/** Verificação real da sessão: o backend confere no banco que a conta existe e está ativa e informa o marcador de administrador. */
+export const fetchPortalUser = () => api<PortalUser>('/portal/me');
+
+/** Texto para mostrar quando uma chamada falha; 403 (rota sem permissão para esta conta) nunca vira tela em branco. */
+export function describeError(err: unknown): string {
+  if (err instanceof ApiError && err.status === 403) return 'Sua conta não tem permissão para acessar esta área.';
+  if (err instanceof ApiError && err.status === 401) return 'Sua sessão expirou. Entre novamente.';
+  return err instanceof Error ? err.message : 'Não foi possível concluir a operação.';
+}

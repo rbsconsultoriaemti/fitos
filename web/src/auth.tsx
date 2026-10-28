@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ApiError, PORTAL_ROLES, fetchPortalUser, login as apiLogin, logout as apiLogout, refreshSession, type User } from './api';
+import { fetchPortalUser, login as apiLogin, logout as apiLogout, refreshSession, type PortalUser } from './api';
 
-type State = { status: 'loading' } | { status: 'out' } | { status: 'in'; user: User };
+type State = { status: 'loading' } | { status: 'out' } | { status: 'in'; user: PortalUser };
 
 interface AuthValue {
   state: State;
@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!session) return alive && setState({ status: 'out' });
       try {
         const user = await fetchPortalUser();
-        if (alive) setState(PORTAL_ROLES.includes(user.role) ? { status: 'in', user } : { status: 'out' });
+        if (alive) setState({ status: 'in', user });
       } catch {
         if (alive) setState({ status: 'out' });
       }
@@ -33,9 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    await apiLogin(email, password); // 403 => aluno ou conta sem acesso (a mensagem vem do backend)
+    await apiLogin(email, password); // qualquer conta ativa entra; a permissão é decidida pelo backend, rota por rota
     const user = await fetchPortalUser();
-    if (!PORTAL_ROLES.includes(user.role)) throw new ApiError(403, 'portal_forbidden', 'Esta conta não tem acesso ao portal');
     setState({ status: 'in', user });
   }, []);
 

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { ROLE_LABELS } from './api';
 import { AuthProvider, useAuth } from './auth';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Users from './pages/Users';
 
@@ -22,7 +23,9 @@ function RequireAuth() {
         <div className="topbar-inner">
           <span className="brand">FitOS</span>
           <nav className="nav" aria-label="Principal">
-            <NavLink to="/usuarios">Usuários</NavLink>
+            <NavLink to="/" end>
+              Início
+            </NavLink>
           </nav>
           <div className="who">
             <span>
@@ -48,9 +51,10 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<RequireAuth />}>
+            <Route path="/" element={<Home />} />
             <Route path="/usuarios" element={<Users />} />
           </Route>
-          <Route path="*" element={<Navigate to="/usuarios" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

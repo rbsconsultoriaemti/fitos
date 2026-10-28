@@ -29,6 +29,6 @@
 - Tipos: `auth.repository.ts` (`Role`), `mobile/src/lib/types.ts`, `web/src/api.ts`; enum no banco em `1700000000001_create-users.sql`. Nenhum cadastro público cria `admin` (`registrableRoles`).
 
 ## Pendências
-- Passo 2: telas no portal e no app; o front do portal (`web/`) ainda tem a checagem antiga `PORTAL_ROLES` em `src/auth.tsx` e vai barrar aluno mesmo o backend aceitando.
+- Passo 2: telas de negócio no portal e no app. A checagem antiga `PORTAL_ROLES` do front foi removida (28/10/2026); `test:admin-role` cobre aluno com/sem marcador e conta desativada.
 - Decidir o destino do papel `admin` (migrar para o marcador e remover) depois que as rotas acima forem revistas.
 - Sem limite de tentativas no login.
