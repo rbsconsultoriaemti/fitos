@@ -9,6 +9,7 @@ import 'dotenv/config';
 import { execSync, spawn } from 'node:child_process';
 import http from 'node:http';
 import { Pool } from 'pg';
+import { approveProfessional, isProfessional, registrationFor } from './test-helpers';
 import { addDays, isoWeekdayOf, mondayOf, STREAK_MIN, streak, todayIn, weeklyAdherence, type PlanInfo } from '../src/modules/trainer/trainer.logic';
 
 const PORT = 3993;
@@ -100,7 +101,8 @@ async function main() {
   const register = async (name: string, role: string) => {
     const email = `trn-${name.toLowerCase()}-${stamp}@teste.local`;
     emails.push(email);
-    const r = await call('/auth/register', null, 'POST', { name: `Aluno ${name}`, email, password: 'SenhaTeste123!', role });
+    const r = await call('/auth/register', null, 'POST', { name: `Aluno ${name}`, email, password: 'SenhaTeste123!', role, ...registrationFor(role) });
+    if (isProfessional(role)) await approveProfessional(pool, r.body.user.id);
     return { token: r.body.accessToken as string, id: r.body.user.id as string };
   };
   try {

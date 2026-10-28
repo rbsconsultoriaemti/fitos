@@ -30,6 +30,8 @@
     "test:platform-admin": "tsx scripts/platform-admin-e2e.ts",
     "test:admin-role": "tsx scripts/admin-role-e2e.ts",
     "test:admin-users": "tsx scripts/admin-users-e2e.ts",
+    "test:invites": "tsx scripts/invites-e2e.ts",
+    "test:professional-gate": "tsx scripts/professional-gate-e2e.ts",
     "test:admin-users-guard": "tsx scripts/admin-users-guard-e2e.ts",
     "test:quotas": "tsx scripts/quotas-e2e.ts",
     "test:onboarding": "tsx --tsconfig scripts/tsconfig.e2e.json scripts/onboarding-e2e.ts"

@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Pool } from 'pg';
 import type { Request, Response } from 'express';
+import { approveProfessional, isProfessional, registrationFor } from './test-helpers';
 import { requirePlatformAdmin, requirePortalAccess, requireProfessional } from '../src/modules/portal/portal.access';
 
 const PORT = 3995;
@@ -79,7 +80,8 @@ async function main() {
   const register = async (tag: string, role = 'student', extra: Record<string, unknown> = {}) => {
     const email = `padm-${tag}-${stamp}@teste.local`;
     emails.push(email);
-    const r = await call('/auth/register', { method: 'POST', body: { name: `Teste ${tag}`, email, password: PASSWORD, role, ...extra } });
+    const r = await call('/auth/register', { method: 'POST', body: { name: `Teste ${tag}`, email, password: PASSWORD, role, ...registrationFor(role), ...extra } });
+    if (isProfessional(role)) await approveProfessional(pool, r.body.user.id);
     return { email, id: r.body.user.id as string, token: r.body.accessToken as string, status: r.status };
   };
 

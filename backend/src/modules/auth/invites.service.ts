@@ -58,6 +58,8 @@ export async function acceptInvite(
     ]);
     const invite = rows[0];
     if (!invite) throw new AppError(404, 'invite_not_found', 'Convite não encontrado');
+    // Este fluxo só vincula ALUNO a profissional. Convites do portal (que criam conta com outro papel) não passam por aqui.
+    if (invite.role !== 'student') throw new AppError(404, 'invite_not_found', 'Convite não encontrado');
     if (invite.status !== 'pending') throw new AppError(410, 'invite_unavailable', 'Convite já utilizado ou revogado');
     if (invite.expires_at.getTime() <= Date.now()) {
       await client.query(`UPDATE invites SET status = 'expired' WHERE id = $1`, [invite.id]);

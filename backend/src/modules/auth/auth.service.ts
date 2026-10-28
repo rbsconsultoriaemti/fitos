@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { pool } from '../../database/pool';
 import { config } from '../../shared/config';
 import { AppError } from '../../shared/errors';
+import { isProfessionalRole, normalizeRegistration } from '../../shared/professional-registration';
 import {
   findRefreshTokenForUpdate,
   findUserByEmail,
@@ -32,6 +33,8 @@ export interface PublicUser {
   name: string;
   email: string;
   role: Role;
+  /** Só na resposta do cadastro: 'pending' para profissional (aguarda o administrador), 'approved' para aluno. */
+  validationStatus?: 'pending' | 'approved';
 }
 
 export interface AuthResult {
@@ -69,12 +72,14 @@ async function issueRefreshToken(userId: string, familyId: string, db?: Paramete
 }
 
 export async function register(input: RegisterInput): Promise<AuthResult> {
+  // Profissional se cadastra com o registro no conselho e entra pendente até o administrador validar.
+  const registration = isProfessionalRole(input.role) ? normalizeRegistration(input.role, input.registrationCouncil, input.registrationNumber) : undefined;
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
-  const user = await insertUser(input.name, input.email, passwordHash, input.role);
+  const user = await insertUser(input.name, input.email, passwordHash, input.role, registration);
   if (!user) throw new AppError(409, 'email_in_use', 'E-mail já cadastrado');
 
   return {
-    user: toPublic(user),
+    user: { ...toPublic(user), validationStatus: registration ? 'pending' : 'approved' },
     accessToken: signAccessToken(user),
     refreshToken: await issueRefreshToken(user.id, randomUUID()),
   };

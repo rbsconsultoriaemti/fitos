@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { wrap } from '../../shared/http';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
+import { requireValidatedProfessional } from '../portal/portal.access';
 import * as service from './trainer.service';
 import { suggestPlan } from './trainer.suggest';
 
 export const trainerRouter = Router();
-trainerRouter.use(requireAuth, requireRole('trainer'));
+trainerRouter.use(requireAuth, requireRole('trainer'), requireValidatedProfessional);
 
 // Home do professor: alunos vinculados com o status de hoje + resumo.
 trainerRouter.get(

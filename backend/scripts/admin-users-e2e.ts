@@ -12,6 +12,7 @@ import { execSync, spawn } from 'node:child_process';
 import { Pool } from 'pg';
 import { pool as appPool } from '../src/database/pool';
 import { updateUser } from '../src/modules/portal/admin-users.service';
+import { approveProfessional, isProfessional, registrationFor } from './test-helpers';
 
 const PORT = 3996;
 const API = `http://localhost:${PORT}`;
@@ -81,8 +82,9 @@ async function main() {
   const register = async (tag: string, role = 'student') => {
     const email = `adm-${tag}-${stamp}@teste.local`;
     emails.push(email);
-    const r = await call('/auth/register', { method: 'POST', body: { name: `Adm ${tag} ${stamp}`, email, password: PASSWORD, role } });
+    const r = await call('/auth/register', { method: 'POST', body: { name: `Adm ${tag} ${stamp}`, email, password: PASSWORD, role, ...registrationFor(role) } });
     const id = r.body.user.id as string;
+    if (isProfessional(role)) await approveProfessional(pool, id);
     const token = async () => (await call('/portal/login', { method: 'POST', body: { email, password: PASSWORD }, headers: PORTAL })).body.accessToken as string;
     return { email, id, token };
   };

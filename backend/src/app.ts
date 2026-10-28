@@ -27,6 +27,8 @@ function describeDatabaseTarget() {
 
 export function createApp() {
   const app = express();
+  // Atrás do Traefik (1 salto) o IP real do cliente vem do X-Forwarded-For; sem isso o limite por IP veria só o proxy.
+  if (config.trustProxyHops > 0) app.set('trust proxy', config.trustProxyHops);
   app.use(helmet());
   app.use(cors());
   // Foto em base64 (JSON) precisa de limite maior que o padrão de 100 kb; vem antes do parser global.

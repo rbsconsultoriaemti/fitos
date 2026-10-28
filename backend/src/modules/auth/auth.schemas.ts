@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { registrationFields } from '../../shared/professional-registration';
 
 // Papéis que podem se cadastrar sozinhos. `admin` nunca é criado por registro público.
 export const registrableRoles = [
@@ -15,6 +16,8 @@ export const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(8).max(72), // bcrypt ignora bytes após 72
   role: z.enum(registrableRoles).default('student'),
+  // Obrigatórios para papel profissional (conferidos em auth.service); ignorados para aluno.
+  ...registrationFields,
 });
 
 export const loginSchema = z.object({

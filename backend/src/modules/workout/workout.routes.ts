@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { wrap } from '../../shared/http';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
+import { requireValidatedIfProfessional, requireValidatedProfessional, requireValidatedProfessionalOrLegacyAdmin } from '../portal/portal.access';
 import {
   createExerciseSchema,
   createLogSchema,
@@ -22,6 +23,7 @@ workoutRouter.use(requireAuth);
 workoutRouter.post(
   '/exercises',
   requireRole('trainer', 'admin'),
+  requireValidatedProfessionalOrLegacyAdmin,
   wrap(async (req, res) => {
     res.status(201).json(await service.createExercise(createExerciseSchema.parse(req.body)));
   }),
@@ -42,6 +44,7 @@ workoutRouter.get(
 // Planos
 workoutRouter.post(
   '/plans',
+  requireValidatedIfProfessional,
   wrap(async (req, res) => {
     res.status(201).json(await service.createPlan(req.auth!, createPlanSchema.parse(req.body)));
   }),
@@ -60,6 +63,7 @@ workoutRouter.get(
 );
 workoutRouter.put(
   '/plans/:id',
+  requireValidatedIfProfessional,
   wrap(async (req, res) => {
     res.json(await service.updatePlan(req.auth!, idParam.parse(req.params).id, updatePlanSchema.parse(req.body)));
   }),
@@ -67,12 +71,14 @@ workoutRouter.put(
 workoutRouter.post(
   '/plans/:id/approve',
   requireRole('trainer', 'running_coach', 'cycling_coach'),
+  requireValidatedProfessional,
   wrap(async (req, res) => {
     res.json(await service.approvePlan(req.auth!, idParam.parse(req.params).id));
   }),
 );
 workoutRouter.post(
   '/plans/:id/archive',
+  requireValidatedIfProfessional,
   wrap(async (req, res) => {
     res.json(await service.archivePlan(req.auth!, idParam.parse(req.params).id));
   }),

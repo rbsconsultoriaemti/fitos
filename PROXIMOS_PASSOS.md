@@ -23,24 +23,36 @@ Feito (detalhes nos STATUS.md de cada módulo):
 
 **Etapa 1 (base) pronta no código, aguardando aprovação para a etapa 2:** `web/` (login, guarda de rota, tela Usuários vazia), `/portal/login|refresh|logout|me` no backend com refresh token em cookie httpOnly, `npm run test:admin-role`, Dockerfile e proposta de labels do Traefik (DEPLOY_VPS.md, "Portal /admin (proposta)"). Detalhes em `web/STATUS.md`. Pendente da etapa 1: validar a interface no navegador e o container na VPS; aplicar as labels no compose real.
 
-**Acesso (decidido depois da etapa 1):** o portal aceita qualquer conta ativa; a permissão é por rota, conferida no banco, com `is_platform_admin` separado de `role`. Passo 1 feito (migration 020, script, middlewares, `/portal/me`). Em 28/10/2026 o front deixou de checar papel (tela Início por `/portal/me`; aluno vê aviso curto); falta o passo 2 (telas de negócio, aguardando aprovação) e rodar a migration 020 na VPS (comandos em DEPLOY_VPS.md).
-
 **Segurança, a fazer:** o `cors()` da API está aberto (`backend/src/app.ts`). O portal usa o mesmo domínio e não precisa de CORS; restringir às origens necessárias (o app mobile nativo não depende de CORS) antes do lançamento. Também faltam limite de tentativas de login e `NODE_ENV=production` confirmado na VPS (cookie `Secure`).
 
-Decidido com o dono do projeto (27/10/2026): o portal atende **administradores e profissionais** (treinador, nutricionista, psicólogo e os demais papéis) e vem **antes do espaço do professor**. Alunos continuam só no app mobile.
+Decisões com o dono do projeto (27/10/2026), que substituem o escopo inicial:
 
-Escopo da primeira versão:
-- ~~**Usuários e papéis**~~ (pronto no código em 28/10/2026, `npm run test:admin-users`): listar, buscar, paginar, ativar/desativar conta e trocar o papel de negócio (aluno ou um dos profissionais), com auditoria em `admin_audit_log` (migration 021). O papel `admin` não é atribuível por aqui e o marcador `is_platform_admin` aparece só como leitura: concessão e revogação são exclusivamente pelo script `grant-platform-admin`, nunca pela API ou pela tela. Pendente: validar a interface no navegador e aplicar a migration 021 na VPS (ver DEPLOY_VPS.md).
+- **Portal para todos.** Qualquer conta ativa entra em `https://fitos.rbsconsulting.com.br/admin`. As telas liberadas dependem do papel e do vínculo: aluno vê os próprios treinos e dieta (visão do aluno no portal entra depois); profissional vê os alunos vinculados a ele; administrador vê os indicadores da empresa. A checagem é feita rota por rota no backend, e o front nunca é a única barreira.
+- **Administrador é um marcador, não um papel.** Usar `is_platform_admin` (boolean) em `users`, mantendo `role` com o papel de negócio. Assim a mesma conta treina como aluno e administra a empresa. Quem recebe o marcador é definido internamente, nunca por formulário.
+- **Cadastro só pelo app ou por convite.** O portal faz só login. Nenhum cadastro público de conta.
+- **Pedido de convite pelo formulário público** para todos os papéis, exceto administrador. Cada papel tem seu modelo de convite (campos exigidos, texto e validade). Profissionais regulados (nutricionista, psicólogo, educador físico) informam o número e o órgão de registro, e o administrador confere antes de liberar o acesso. Alunos entram normalmente por convite de um profissional.
+- **Pré-requisitos de segurança antes de abrir o login para todos:** limite de tentativas em `/auth/login` e `/portal/login`, restringir o `cors()` da API e confirmar `NODE_ENV=production` (já confirmado na VPS).
+- **Ordem sugerida:** etapa 2 (área administrativa: usuários e papéis, assinaturas e cotas, catálogos, métricas), depois o painel do profissional, depois a tela de pedidos de convite com revisão pelo administrador, e por último a visão do aluno no portal.
+
+**Convites com papéis e validação de profissional — passo 1 (backend) pronto no código, aguardando aprovação; telas no passo 2** (migration 022, `npm run test:invites`):
+- `POST/GET /portal/invites`, `POST /portal/invites/:id/revoke`, `GET /portal/invites/token/:token` e `POST /portal/invites/token/:token/accept` (públicas, com limite por IP); `GET /portal/admin/professionals/pending` e `POST /portal/admin/professionals/:id/validate|reject` (só administrador). Detalhes em `backend/src/modules/portal/STATUS.md`.
+- Profissional convidado entra `pending`; só o administrador aprova ou rejeita. Quem está pendente ou rejeitado não cria convites e não passa em `requireValidatedProfessional`.
+- **Passo 2a (backend) pronto no código, aguardando aprovação** (`npm run test:professional-gate`): (1) o bloqueio de prescrição para profissional pendente ou rejeitado está aplicado (lista de rotas em `backend/src/modules/portal/STATUS.md`); (2) `POST /auth/register` com papel profissional exige conselho e número e cria a conta `pending`; (3) validar e rejeitar só valem para contas `pending` e são finais pela API; (4) o histórico da conta (`GET /portal/admin/audit`) devolve o texto legível de cada ação; (5) o limite por IP respeita `TRUST_PROXY_HOPS` (testado com instâncias reais; falta conferir atrás do Traefik na VPS). Limite de uso em memória: migrar para Redis se houver mais de uma instância da API.
+- **Ainda decidido por padrão (me diga se quer outro):** convite criado por administrador fica só em `invite_audit_log`; convite de profissional criado por profissional não cria vínculo com aluno (vínculo segue o fluxo antigo `/invites/generate` + `/invites/accept`).
+- **Próximo (passo 2b, telas):** página pública `/admin/convite/:token` (aceitação), tela de convites (criar, listar, revogar), fila de profissionais pendentes com validar/rejeitar, e o aviso de "registro em análise" para profissional pendente (hoje `/portal/me` não informa `validationStatus`).
+
+Escopo da área administrativa (etapa 2):
+- ~~**Usuários e papéis**~~ (feito): listar, buscar, ativar/desativar conta e trocar o papel de negócio. O marcador de administrador (`is_platform_admin`) NÃO se concede nem se retira pela tela ou pela API: só pelo script `grant-platform-admin`; a tela o mostra em leitura.
 - **Assinaturas e cotas**: plano de cada usuário, status da assinatura e uso das cotas (fotos e planos por IA), usando `GET /quotas` e os dados de `subscriptions`.
 - **Catálogos**: exercícios, alimentos e itens da lista de preferências (incluir, editar, ocultar).
 - **Métricas de uso**: usuários ativos, fotos reconhecidas, planos gerados e custo estimado da IA.
 
 Tecnologia (decidido): **React + Vite** em `web/`, no mesmo repositório, consumindo a mesma API. Publicado como container estático atrás do Traefik (sem mudar o padrão de deploy da API).
 
-Pontos em aberto antes de começar:
+Pontos já resolvidos e pendências:
 - ~~Endereço~~ decidido: `https://fitos.rbsconsulting.com.br/admin`, mesmo domínio da API.
-- ~~Autenticação~~ feita na etapa 1: login por `/portal/login`, access token em memória, refresh em cookie httpOnly, papel conferido no banco.
-- Endpoints de administração: ainda não existem. Cada tela nova precisa de rota com checagem de papel `admin` ou `trainer`, e teste automatizado.
+- ~~Autenticação~~ feita na etapa 1: login por `/portal/login`, access token em memória, refresh em cookie httpOnly, papel conferido no banco. Essa checagem precisa passar a valer para "conta ativa" e permissão por rota, conforme as decisões acima.
+- Endpoints de administração: ainda não existem. Cada rota nova precisa de checagem de papel ou vínculo e de teste automatizado.
 - Observação: o portal descrito como "web" que você usava antes não está publicado nesta VPS. Hoje o domínio serve só a API (a raiz responde 404 do Express). Por isso o portal será construído do zero.
 
 ## Fazer agora (precisa de você)

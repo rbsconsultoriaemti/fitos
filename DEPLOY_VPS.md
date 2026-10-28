@@ -290,3 +290,23 @@ docker compose up -d --build
 - Desativar uma conta no portal revoga os refresh tokens dela: a sessão no app também cai e o aluno precisa entrar de novo. O "último acesso" mostrado na tela é a data do refresh token mais recente da conta, não um registro de login.
 - **O marcador `is_platform_admin` não é editável pela API nem pelo portal.** A tela só o mostra; conceder e revogar continua exclusivamente pelo script `grant-platform-admin` (seção acima).
 - Reverter (`migrate:down`) apaga a tabela de auditoria e todo o histórico: faça backup antes.
+
+## Migration 022 (convites com papéis e validação de profissional)
+
+A migration `1700000000022_invites-and-validation.sql` adiciona colunas a `users` (`validation_status` com padrão `approved`, então **nenhuma conta existente muda**; `registration_council`, `registration_number`, `validated_by`, `validated_at`) e a `invites` (`email`, `created_at`, `used_at`, `revoked_at`, `CHECK (role <> 'admin')`), e cria `invite_audit_log` (somente inserção). Backup antes; migration antes do `docker compose up -d --build`:
+
+```bash
+# [root] na VPS
+cd /var/www/fitos && git pull
+mkdir -p /var/backups/fitos
+sudo -u postgres pg_dump fitos | gzip > /var/backups/fitos/fitos-pre022-$(date +%F).sql.gz
+DATABASE_URL="postgres://fitos:$(cat /root/fitos_db_pass.txt)@127.0.0.1:5432/fitos" npm run --prefix backend migrate:up
+docker compose up -d --build
+```
+
+- **Quem valida profissionais é sempre o administrador da plataforma** (`POST /portal/admin/professionals/:id/validate|reject`). Profissional convidado entra `pending` e não convida nem usa telas profissionais até ser aprovado.
+- Variável nova no `backend/.env` da VPS: `PORTAL_INVITE_BASE_URL=https://fitos.rbsconsulting.com.br/admin/convite/` (sem ela o link usa `localhost`). Opcionais: `INVITE_CREATE_PER_HOUR` (30) e `INVITE_ACCEPT_PER_15MIN` (20).
+- A API usa `TRUST_PROXY_HOPS` (padrão 1 com `NODE_ENV=production`, 0 caso contrário) para o limite por IP ver o cliente real atrás do Traefik. Depois do deploy, confirme na VPS que o IP chega certo (muitas consultas de `GET /portal/invites/token/<qualquer>` de um IP devem dar 429 sem afetar outro IP) e que só o Traefik alcança a porta da API; se ela estiver exposta direto, o IP poderia ser forjado pelo `X-Forwarded-For` (nesse caso use `TRUST_PROXY_HOPS=0`).
+- O limite de requisições é em memória: vale para uma única instância da API; migrar para Redis se houver mais de uma.
+- **Efeito do deploy da 2a etapa dos convites (código novo, sem migration nova):** (1) `POST /auth/register` com papel profissional passa a exigir `registrationCouncil`/`registrationNumber` e cria a conta `pending`; (2) profissionais JÁ existentes continuam `approved` (padrão da coluna), mas qualquer profissional cadastrado depois do deploy fica pendente até o administrador validar; (3) as rotas de prescrição (`/trainer/*`, aprovar planos, cadastrar exercícios e alimentos, `/invites/generate`) e a criação/edição/arquivamento de planos por profissional passam a devolver 403 `professional_not_validated` para quem não está aprovado. Alunos não são afetados. O app mobile só cadastra alunos; nada muda nele.
+- Reverter (`migrate:down`) apaga a auditoria de convites e as colunas de validação: backup antes.

@@ -10,6 +10,8 @@ export interface PortalAccount {
   id: string;
   role: Role;
   isPlatformAdmin: boolean;
+  /** 'pending' | 'approved' | 'rejected'. Só profissionais convidados nascem pendentes; o administrador decide. */
+  validationStatus: string;
 }
 
 declare module 'express-serve-static-core' {
@@ -25,13 +27,13 @@ declare module 'express-serve-static-core' {
  */
 async function loadAccount(req: Request): Promise<PortalAccount> {
   if (!req.auth) throw new AppError(401, 'missing_token', 'Token não informado');
-  const { rows } = await pool.query<{ id: string; role: Role; is_active: boolean; is_platform_admin: boolean }>(
-    'SELECT id, role, is_active, is_platform_admin FROM users WHERE id = $1',
+  const { rows } = await pool.query<{ id: string; role: Role; is_active: boolean; is_platform_admin: boolean; validation_status: string }>(
+    'SELECT id, role, is_active, is_platform_admin, validation_status FROM users WHERE id = $1',
     [req.auth.sub],
   );
   const u = rows[0];
   if (!u || !u.is_active) throw new AppError(401, 'invalid_token', 'Token inválido ou expirado');
-  req.account = { id: u.id, role: u.role, isPlatformAdmin: u.is_platform_admin };
+  req.account = { id: u.id, role: u.role, isPlatformAdmin: u.is_platform_admin, validationStatus: u.validation_status };
   req.auth = { sub: u.id, role: u.role }; // papel atual, não o do JWT
   return req.account;
 }
@@ -54,6 +56,54 @@ export const requirePlatformAdmin = guard((a) => a.isPlatformAdmin);
 
 /** Profissional (papel de profissional) ou administrador da plataforma. Use depois de `requireAuth`. */
 export const requireProfessional = guard((a) => a.isPlatformAdmin || PROFESSIONAL_ROLES.includes(a.role));
+
+const NOT_VALIDATED = () => new AppError(403, 'professional_not_validated', 'Seu registro profissional ainda não foi validado pelo administrador');
+
+/**
+ * Profissional JÁ VALIDADO pelo administrador (ou o próprio administrador da plataforma). Não profissional => 403
+ * `forbidden`; profissional pendente ou rejeitado => 403 `professional_not_validated`. O estado é lido do banco a cada
+ * requisição. Use depois de `requireAuth` (e de `requireRole`, nas rotas antigas).
+ */
+export const requireValidatedProfessional = async (req: Request, _res: Response, next: NextFunction) => {
+  try {
+    const a = await loadAccount(req);
+    if (a.isPlatformAdmin) return next();
+    if (!PROFESSIONAL_ROLES.includes(a.role)) throw new AppError(403, 'forbidden', 'Sem permissão');
+    if (a.validationStatus !== 'approved') throw NOT_VALIDATED();
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Para rotas antigas cujo `requireRole` também aceita o papel legado `admin` (cadastro de exercícios e de alimentos):
+ * igual ao anterior, mas o papel `admin` continua passando, como já passava. (No portal o papel `admin` NÃO vale.)
+ */
+export const requireValidatedProfessionalOrLegacyAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const a = await loadAccount(req);
+    if (a.role === 'admin') return next();
+  } catch (err) {
+    return next(err);
+  }
+  return requireValidatedProfessional(req, res, next);
+};
+
+/**
+ * Rotas compartilhadas entre aluno e profissional (criar/editar/arquivar plano): aluno passa; administrador passa;
+ * profissional só se `approved`. Pendente ou rejeitado => 403 `professional_not_validated`.
+ */
+export const requireValidatedIfProfessional = async (req: Request, _res: Response, next: NextFunction) => {
+  try {
+    const a = await loadAccount(req);
+    if (a.isPlatformAdmin || !PROFESSIONAL_ROLES.includes(a.role)) return next();
+    if (a.validationStatus !== 'approved') throw NOT_VALIDATED();
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
 
 /** Defesa extra contra CSRF além do SameSite=Strict: um formulário de outro site não consegue mandar este cabeçalho. */
 export function requirePortalHeader(req: Request, _res: Response, next: NextFunction) {

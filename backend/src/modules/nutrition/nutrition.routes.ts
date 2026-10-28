@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AppError } from '../../shared/errors';
 import { wrap } from '../../shared/http';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
+import { requireValidatedIfProfessional, requireValidatedProfessional, requireValidatedProfessionalOrLegacyAdmin } from '../portal/portal.access';
 import {
   applyTemplateSchema,
   barcodeParam,
@@ -57,6 +58,7 @@ nutritionRouter.get(
 nutritionRouter.post(
   '/foods',
   requireRole('nutritionist', 'admin'),
+  requireValidatedProfessionalOrLegacyAdmin,
   wrap(async (req, res) => {
     res.status(201).json(await service.createFood(createFoodSchema.parse(req.body)));
   }),
@@ -65,6 +67,7 @@ nutritionRouter.post(
 nutritionRouter.patch(
   '/foods/:id/portions',
   requireRole('nutritionist', 'admin'),
+  requireValidatedProfessionalOrLegacyAdmin,
   wrap(async (req, res) => {
     res.json(await service.setFoodPortions(idParam.parse(req.params).id, setPortionsSchema.parse(req.body).portions));
   }),
@@ -73,6 +76,7 @@ nutritionRouter.patch(
 // Planos alimentares
 nutritionRouter.post(
   '/plans',
+  requireValidatedIfProfessional,
   wrap(async (req, res) => {
     res.status(201).json(await service.createPlan(req.auth!, createPlanSchema.parse(req.body)));
   }),
@@ -91,6 +95,7 @@ nutritionRouter.get(
 );
 nutritionRouter.put(
   '/plans/:id',
+  requireValidatedIfProfessional,
   wrap(async (req, res) => {
     res.json(await service.updatePlan(req.auth!, idParam.parse(req.params).id, updatePlanSchema.parse(req.body)));
   }),
@@ -98,12 +103,14 @@ nutritionRouter.put(
 nutritionRouter.post(
   '/plans/:id/approve',
   requireRole('nutritionist'),
+  requireValidatedProfessional,
   wrap(async (req, res) => {
     res.json(await service.approvePlan(req.auth!, idParam.parse(req.params).id));
   }),
 );
 nutritionRouter.post(
   '/plans/:id/archive',
+  requireValidatedIfProfessional,
   wrap(async (req, res) => {
     res.json(await service.archivePlan(req.auth!, idParam.parse(req.params).id));
   }),

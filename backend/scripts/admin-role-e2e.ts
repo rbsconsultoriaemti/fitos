@@ -10,6 +10,7 @@ import { execSync, spawn } from 'node:child_process';
 import { Pool } from 'pg';
 import type { NextFunction, Request, Response } from 'express';
 import { requireRole } from '../src/modules/auth/auth.middleware';
+import { approveProfessional, isProfessional, registrationFor } from './test-helpers';
 
 const PORT = 3994;
 const API = `http://localhost:${PORT}`;
@@ -71,7 +72,8 @@ async function main() {
   const register = async (tag: string, role: string) => {
     const email = `portal-${tag}-${stamp}@teste.local`;
     emails.push(email);
-    const r = await call('/auth/register', { method: 'POST', body: { name: 'Teste Portal', email, password: PASSWORD, role: role === 'admin' ? 'student' : role } });
+    const r = await call('/auth/register', { method: 'POST', body: { name: 'Teste Portal', email, password: PASSWORD, role: role === 'admin' ? 'student' : role, ...registrationFor(role) } });
+    if (isProfessional(role)) await approveProfessional(pool, r.body.user.id);
     if (role === 'admin') await pool.query("UPDATE users SET role = 'admin' WHERE email = $1", [email]);
     return { email, id: r.body.user.id as string };
   };

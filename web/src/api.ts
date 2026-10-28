@@ -152,6 +152,8 @@ export interface AuditEntry {
   action: string;
   before: { role?: Role; isActive?: boolean };
   after: { role?: Role; isActive?: boolean };
+  /** Texto pronto vindo do backend, já com o autor (ex.: "Validado como nutricionista (CRN 123) por Maria"). */
+  description: string;
   createdAt: string;
 }
 

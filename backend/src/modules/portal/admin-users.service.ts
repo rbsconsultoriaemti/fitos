@@ -130,18 +130,66 @@ export async function updateUser(actorId: string, id: string, patch: { role?: st
   return getUser(actorId, id);
 }
 
+const ROLE_PT: Record<string, string> = {
+  student: 'aluno',
+  trainer: 'professor de Ed. Física',
+  running_coach: 'treinador de corrida',
+  cycling_coach: 'treinador de ciclismo',
+  nutritionist: 'nutricionista',
+  psychologist: 'psicólogo',
+  admin: 'administrador',
+};
+const rolePt = (r: unknown) => ROLE_PT[String(r)] ?? String(r);
+
+/** Texto legível de cada linha da auditoria (a tela mostra isto; nunca uma linha vazia). */
+function describeAudit(r: { action: string; before: Record<string, unknown>; after: Record<string, unknown>; actor_name: string | null; target_role: string | null; target_council: string | null; target_number: string | null }): string {
+  const by = `por ${r.actor_name ?? 'conta removida'}`;
+  const reg = r.target_council ? ` (${r.target_council === 'SEM_CONSELHO' ? 'sem conselho' : `${r.target_council} ${r.target_number ?? ''}`.trim()})` : '';
+  switch (r.action) {
+    case 'professional_validate':
+      return `Validado como ${rolePt(r.target_role)}${reg} ${by}`;
+    case 'professional_reject':
+      return `Rejeitado como ${rolePt(r.target_role)}${reg} ${by}`;
+    case 'role_change':
+    case 'activate':
+    case 'deactivate':
+    case 'update': {
+      const parts: string[] = [];
+      if (r.after.role !== undefined) parts.push(`Papel alterado de ${rolePt(r.before.role)} para ${rolePt(r.after.role)}`);
+      if (r.after.isActive !== undefined) parts.push(r.after.isActive ? 'Conta ativada' : 'Conta desativada');
+      return `${parts.join(' e ') || 'Conta alterada'} ${by}`;
+    }
+    default:
+      return `Alteração (${r.action}) ${by}`;
+  }
+}
+
 export async function listAudit(userId: string | undefined, page: number) {
   const where = userId ? 'WHERE a.target_user_id = $1' : '';
   const params = userId ? [userId] : [];
   const total = Number((await pool.query<{ n: string }>(`SELECT count(*) AS n FROM admin_audit_log a ${where}`, params)).rows[0].n);
   const { rows } = await pool.query(
-    `SELECT a.id, a.actor_id, actor.name AS actor_name, actor.email AS actor_email, a.target_user_id, a.action, a.before, a.after, a.created_at
-       FROM admin_audit_log a LEFT JOIN users actor ON actor.id = a.actor_id
+    `SELECT a.id, a.actor_id, actor.name AS actor_name, actor.email AS actor_email, a.target_user_id, a.action, a.before, a.after, a.created_at,
+            tgt.role AS target_role, tgt.registration_council AS target_council, tgt.registration_number AS target_number
+       FROM admin_audit_log a
+       LEFT JOIN users actor ON actor.id = a.actor_id
+       LEFT JOIN users tgt ON tgt.id = a.target_user_id
        ${where} ORDER BY a.created_at DESC, a.id LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`,
     params,
   );
   return {
-    items: rows.map((r) => ({ id: r.id, actorId: r.actor_id, actorName: r.actor_name, actorEmail: r.actor_email, targetUserId: r.target_user_id, action: r.action, before: r.before, after: r.after, createdAt: r.created_at })),
+    items: rows.map((r) => ({
+      id: r.id,
+      actorId: r.actor_id,
+      actorName: r.actor_name,
+      actorEmail: r.actor_email,
+      targetUserId: r.target_user_id,
+      action: r.action,
+      before: r.before,
+      after: r.after,
+      description: describeAudit(r),
+      createdAt: r.created_at,
+    })),
     page,
     pageSize: PAGE_SIZE,
     total,

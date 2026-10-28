@@ -46,13 +46,15 @@ export async function insertUser(
   email: string,
   passwordHash: string,
   role: Role,
+  /** Só para profissionais: nascem 'pending' com o registro informado; o administrador valida depois. */
+  registration?: { council: string; number: string | null },
 ): Promise<UserRow | null> {
   const { rows } = await pool.query<UserRow>(
-    `INSERT INTO users (name, email, password_hash, role)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (name, email, password_hash, role, validation_status, registration_council, registration_number)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT DO NOTHING
      RETURNING *`,
-    [name, email, passwordHash, role],
+    [name, email, passwordHash, role, registration ? 'pending' : 'approved', registration?.council ?? null, registration?.number ?? null],
   );
   return rows[0] ?? null;
 }

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { wrap } from '../../shared/http';
 import { requireAuth, requireRole } from './auth.middleware';
+import { requireValidatedProfessional } from '../portal/portal.access';
 import * as invites from './invites.service';
 
 const acceptSchema = z.object({
@@ -15,6 +16,7 @@ invitesRouter.post(
   '/generate',
   requireAuth,
   requireRole('trainer', 'running_coach', 'cycling_coach', 'nutritionist', 'psychologist'),
+  requireValidatedProfessional,
   wrap(async (req, res) => {
     res.status(201).json(await invites.generateInvite(req.auth!.sub, req.auth!.role));
   }),

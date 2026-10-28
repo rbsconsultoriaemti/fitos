@@ -149,10 +149,8 @@ export default function UserDetail() {
           <ul className="history">
             {audit.map((e) => (
               <li key={e.id}>
-                <strong>{describeChange(e)}</strong>
-                <span className="muted">
-                  {when(e.createdAt)} · por {e.actorName ?? 'conta removida'}
-                </span>
+                <strong>{e.description || describeChange(e)}</strong>
+                <span className="muted">{when(e.createdAt)}</span>
               </li>
             ))}
           </ul>

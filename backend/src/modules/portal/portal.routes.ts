@@ -6,6 +6,7 @@ import { requireAuth } from '../auth/auth.middleware';
 import { loginSchema } from '../auth/auth.schemas';
 import * as auth from '../auth/auth.service';
 import { adminUsersRouter } from './admin-users.routes';
+import { invitesRouter, professionalsAdminRouter } from './invites.routes';
 import { requirePortalAccess, requirePortalHeader } from './portal.access';
 
 const COOKIE = 'fitos_portal_rt';
@@ -82,4 +83,6 @@ portalRouter.get(
   }),
 );
 
+portalRouter.use('/invites', invitesRouter);
+portalRouter.use('/admin/professionals', professionalsAdminRouter);
 portalRouter.use('/admin', adminUsersRouter);
