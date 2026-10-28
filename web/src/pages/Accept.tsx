@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { acceptInvite, COUNCILS_BY_ROLE, COUNCIL_LABELS, describeError, describeInvite, ROLE_LABELS, type AcceptInviteBody, type Council, type InvitePreview, type Role, type ValidationStatus } from '../api';
+import { acceptInvite, BRAZIL_STATES, COUNCILS_BY_ROLE, COUNCIL_LABELS, describeError, describeInvite, ROLE_LABELS, type AcceptInviteBody, type Council, type InvitePreview, type Role, type ValidationStatus } from '../api';
 
 interface Done {
   role: Role;
@@ -12,7 +12,7 @@ export default function Accept() {
   const { token = '' } = useParams();
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', council: '' as Council | '', number: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', council: '' as Council | '', number: '', uf: '' });
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -39,6 +39,7 @@ export default function Accept() {
     if (preview.requiresRegistration) {
       body.registrationCouncil = form.council || undefined;
       body.registrationNumber = form.number.trim() || undefined;
+      body.registrationState = form.uf || undefined;
     }
     try {
       const r = await acceptInvite(token, body);
@@ -132,6 +133,18 @@ export default function Accept() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="field">
+                <label htmlFor="uf">Estado (UF) do registro</label>
+                <select id="uf" value={form.uf} onChange={set('uf')} required>
+                  <option value="">Selecione</option>
+                  {BRAZIL_STATES.map((s) => (
+                    <option key={s.code} value={s.code}>
+                      {s.code} · {s.name}
+                    </option>
+                  ))}
+                </select>
+                <span className="muted">Estado onde o conselho emitiu o seu registro.</span>
               </div>
               <div className="field">
                 <label htmlFor="number">Número de registro</label>

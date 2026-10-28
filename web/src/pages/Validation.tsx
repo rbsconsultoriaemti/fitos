@@ -72,6 +72,7 @@ export default function Validation() {
                     <td>{ROLE_LABELS[p.role]}</td>
                     <td>
                       {p.registrationCouncil ? COUNCIL_LABELS[p.registrationCouncil] : '—'}
+                      {p.registrationState ? ` · ${p.registrationState}` : ''}
                       {p.registrationNumber ? ` · ${p.registrationNumber}` : ''}
                     </td>
                     <td>{new Date(p.createdAt).toLocaleDateString('pt-BR')}</td>

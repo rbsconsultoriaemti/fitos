@@ -122,7 +122,7 @@ export async function describeInvite(token: string) {
 
 export async function acceptInvite(
   token: string,
-  input: { name: string; email: string; password: string; registrationCouncil?: Council; registrationNumber?: string },
+  input: { name: string; email: string; password: string; registrationCouncil?: Council; registrationNumber?: string; registrationState?: string },
 ) {
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
   const client = await pool.connect();
@@ -142,22 +142,24 @@ export async function acceptInvite(
     const professional = isProfessionalRole(role);
     let council: Council | null = null;
     let number: string | null = null;
+    let state: string | null = null;
     if (professional) {
-      const reg = normalizeRegistration(role, input.registrationCouncil, input.registrationNumber);
+      const reg = normalizeRegistration(role, input.registrationCouncil, input.registrationNumber, input.registrationState);
       council = reg.council;
       number = reg.number;
+      state = reg.state;
     }
 
     const { rows: created } = await client.query<{ id: string }>(
-      `INSERT INTO users (name, email, password_hash, role, validation_status, registration_council, registration_number)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING RETURNING id`,
-      [input.name, input.email, passwordHash, role, professional ? 'pending' : 'approved', council, number],
+      `INSERT INTO users (name, email, password_hash, role, validation_status, registration_council, registration_number, registration_state)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING RETURNING id`,
+      [input.name, input.email, passwordHash, role, professional ? 'pending' : 'approved', council, number, state],
     );
     if (!created[0]) throw new AppError(409, 'email_in_use', 'E-mail já cadastrado');
     const userId = created[0].id;
 
     await client.query("UPDATE invites SET status = 'accepted', used_at = now() WHERE id = $1", [invite.id]);
-    await audit(client, invite.id, userId, 'invite_accept', { role, invitedBy: invite.sender_id, validationStatus: professional ? 'pending' : 'approved', registrationCouncil: council });
+    await audit(client, invite.id, userId, 'invite_accept', { role, invitedBy: invite.sender_id, validationStatus: professional ? 'pending' : 'approved', registrationCouncil: council, registrationState: state });
     await client.query('COMMIT');
     return { user: { id: userId, name: input.name, email: input.email, role, validationStatus: professional ? 'pending' : 'approved' } };
   } catch (err) {
@@ -174,11 +176,11 @@ export async function listPendingProfessionals(page: number) {
   const where = "WHERE validation_status = 'pending'";
   const total = Number((await pool.query<{ n: string }>(`SELECT count(*) AS n FROM users ${where}`)).rows[0].n);
   const { rows } = await pool.query(
-    `SELECT id, name, email, role, registration_council, registration_number, created_at FROM users ${where}
+    `SELECT id, name, email, role, registration_council, registration_number, registration_state, created_at FROM users ${where}
       ORDER BY created_at, id LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`,
   );
   return {
-    items: rows.map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, registrationCouncil: u.registration_council, registrationNumber: u.registration_number, createdAt: u.created_at })),
+    items: rows.map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, registrationCouncil: u.registration_council, registrationNumber: u.registration_number, registrationState: u.registration_state, createdAt: u.created_at })),
     page,
     pageSize: PAGE_SIZE,
     total,

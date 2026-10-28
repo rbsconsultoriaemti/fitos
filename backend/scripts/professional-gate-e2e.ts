@@ -96,11 +96,11 @@ async function main() {
   const stamp = Date.now();
   const tag = `gate-${stamp}`;
   const REG: Record<string, Record<string, string>> = {
-    trainer: { registrationCouncil: 'CREF', registrationNumber: '012345-G/SP' },
-    nutritionist: { registrationCouncil: 'CRN', registrationNumber: '98765' },
-    psychologist: { registrationCouncil: 'CRP', registrationNumber: '06/12345' },
-    running_coach: { registrationCouncil: 'SEM_CONSELHO' },
-    cycling_coach: { registrationCouncil: 'CREF', registrationNumber: '777' },
+    trainer: { registrationState: 'SP', registrationCouncil: 'CREF', registrationNumber: '012345-G/SP' },
+    nutritionist: { registrationState: 'SP', registrationCouncil: 'CRN', registrationNumber: '98765' },
+    psychologist: { registrationState: 'SP', registrationCouncil: 'CRP', registrationNumber: '06/12345' },
+    running_coach: { registrationState: 'SP', registrationCouncil: 'SEM_CONSELHO' },
+    cycling_coach: { registrationState: 'SP', registrationCouncil: 'CREF', registrationNumber: '777' },
   };
   const register = async (name: string, role: string, withRegistration = true) => {
     const email = `${tag}-${name}@teste.local`;
@@ -114,14 +114,16 @@ async function main() {
       const r = await register(`semreg-${role}`, role, false);
       check(r.r.status === 400 && r.r.body.error === 'registration_required', `${role} sem registro => 400`, r.r.body);
     }
-    let r = await call('/auth/register', { method: 'POST', body: { name: 'Gate x', email: `${tag}-x@teste.local`, password: PASSWORD, role: 'nutritionist', registrationCouncil: 'CREF', registrationNumber: '12345' } });
+    let r = await call('/auth/register', { method: 'POST', body: { name: 'Gate x', email: `${tag}-x@teste.local`, password: PASSWORD, role: 'nutritionist', registrationState: 'SP', registrationCouncil: 'CREF', registrationNumber: '12345' } });
     check(r.status === 400 && r.body.error === 'registration_council_invalid', 'nutricionista com CREF => 400', r.body);
-    r = await call('/auth/register', { method: 'POST', body: { name: 'Gate x', email: `${tag}-x@teste.local`, password: PASSWORD, role: 'trainer', registrationCouncil: 'CREF' } });
+    r = await call('/auth/register', { method: 'POST', body: { name: 'Gate x', email: `${tag}-x@teste.local`, password: PASSWORD, role: 'trainer', registrationState: 'SP', registrationCouncil: 'CREF' } });
     check(r.status === 400, 'CREF sem número => 400');
-    r = await call('/auth/register', { method: 'POST', body: { name: 'Gate x', email: `${tag}-x@teste.local`, password: PASSWORD, role: 'trainer', registrationCouncil: 'CREF', registrationNumber: 'a b' } });
+    r = await call('/auth/register', { method: 'POST', body: { name: 'Gate z', email: `${tag}-z@teste.local`, password: PASSWORD, role: 'trainer', registrationCouncil: 'CREF', registrationNumber: '012345' } });
+    check(r.status === 400 && r.body.error === 'registration_state_required', 'sem UF => 400 (registration_state_required)', r.body);
+    r = await call('/auth/register', { method: 'POST', body: { name: 'Gate x', email: `${tag}-x@teste.local`, password: PASSWORD, role: 'trainer', registrationState: 'SP', registrationCouncil: 'CREF', registrationNumber: 'a b' } });
     check(r.status === 400, 'número inválido => 400');
     check(Number((await pool.query('SELECT count(*) n FROM users WHERE email = $1', [`${tag}-x@teste.local`])).rows[0].n) === 0, 'cadastros recusados não criam conta');
-    check((await call('/auth/register', { method: 'POST', body: { name: 'Gate y', email: `${tag}-y@teste.local`, password: PASSWORD, role: 'admin', registrationCouncil: 'CREF', registrationNumber: '1' } })).status === 400, 'role admin continua recusado no cadastro => 400');
+    check((await call('/auth/register', { method: 'POST', body: { name: 'Gate y', email: `${tag}-y@teste.local`, password: PASSWORD, role: 'admin', registrationState: 'SP', registrationCouncil: 'CREF', registrationNumber: '1' } })).status === 400, 'role admin continua recusado no cadastro => 400');
 
     const pendTrainer = await register('pend-trainer', 'trainer');
     const pendNutri = await register('pend-nutri', 'nutritionist');
@@ -137,7 +139,7 @@ async function main() {
 
     const student = await register('aluno', 'student', false);
     check(student.r.status === 201 && student.r.body.user.validationStatus === 'approved', 'aluno continua se cadastrando como antes (approved)');
-    const studentWithReg = await call('/auth/register', { method: 'POST', body: { name: 'Gate aluno2', email: `${tag}-aluno2@teste.local`, password: PASSWORD, registrationCouncil: 'CRN', registrationNumber: '123' } });
+    const studentWithReg = await call('/auth/register', { method: 'POST', body: { name: 'Gate aluno2', email: `${tag}-aluno2@teste.local`, password: PASSWORD, registrationState: 'SP', registrationCouncil: 'CRN', registrationNumber: '123' } });
     const sRow = (await pool.query('SELECT role, validation_status, registration_council FROM users WHERE id = $1', [studentWithReg.body.user.id])).rows[0];
     check(studentWithReg.status === 201 && sRow.role === 'student' && sRow.validation_status === 'approved' && sRow.registration_council === null, 'aluno que manda registro: campos ignorados, nada gravado', sRow);
     check((await call('/auth/login', { method: 'POST', body: { email: pendTrainer.email, password: PASSWORD } })).status === 200, 'profissional pendente consegue entrar (login)');

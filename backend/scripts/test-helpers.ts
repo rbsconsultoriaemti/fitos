@@ -7,7 +7,7 @@ const PROFESSIONAL = ['trainer', 'running_coach', 'cycling_coach', 'nutritionist
 export function registrationFor(role: string): Record<string, string> {
   if (!PROFESSIONAL.includes(role)) return {};
   const council = role === 'nutritionist' ? 'CRN' : role === 'psychologist' ? 'CRP' : 'CREF';
-  return { registrationCouncil: council, registrationNumber: '123456' };
+  return { registrationCouncil: council, registrationNumber: '123456', registrationState: 'SP' };
 }
 
 /** Simula a validação do administrador direto no banco (os testes que precisam de um profissional já aprovado). */

@@ -159,11 +159,12 @@ async function main() {
     console.log('\n— Profissional entra pendente —');
     const tTok = tokenOf(adminTrainerInvite.link);
     check((await accept(tTok, newUser('pro1'))).status === 400, 'profissional sem registro => 400');
-    check((await accept(tTok, { ...newUser('pro1'), registrationCouncil: 'CRN', registrationNumber: '12345' })).status === 400, 'conselho errado para o papel (trainer com CRN) => 400');
-    check((await accept(tTok, { ...newUser('pro1'), registrationCouncil: 'CREF' })).status === 400, 'CREF sem número => 400');
-    check((await accept(tTok, { ...newUser('pro1'), registrationCouncil: 'CREF', registrationNumber: '<script>' })).status === 400, 'número com caracteres inválidos => 400');
+    check((await accept(tTok, { ...newUser('pro1'), registrationState: 'SP', registrationCouncil: 'CRN', registrationNumber: '12345' })).status === 400, 'conselho errado para o papel (trainer com CRN) => 400');
+    check((await accept(tTok, { ...newUser('pro1'), registrationState: 'SP', registrationCouncil: 'CREF' })).status === 400, 'CREF sem número => 400');
+    check((await accept(tTok, { ...newUser('pro1'), registrationCouncil: 'CREF', registrationNumber: '012345' })).status === 400, 'sem UF => 400');
+    check((await accept(tTok, { ...newUser('pro1'), registrationState: 'SP', registrationCouncil: 'CREF', registrationNumber: '<script>' })).status === 400, 'número com caracteres inválidos => 400');
     check((await call(`/portal/invites/token/${tTok}`)).status === 200, 'tentativas inválidas não consomem o convite');
-    r = await accept(tTok, { ...newUser('pro1'), role: 'admin', registrationCouncil: 'CREF', registrationNumber: '012345-G/SP' });
+    r = await accept(tTok, { ...newUser('pro1'), role: 'admin', registrationState: 'SP', registrationCouncil: 'CREF', registrationNumber: '012345-G/SP' });
     check(r.status === 201 && r.body.user.role === 'trainer' && r.body.user.validationStatus === 'pending', 'trainer aceito nasce pending (role:"admin" do corpo ignorado)', r.body);
     u = await dbUser(newUser('pro1').email);
     check(u.registration_council === 'CREF' && u.registration_number === '012345-G/SP' && u.validated_by === null && u.validated_at === null, 'conselho e número gravados; ninguém validou ainda', u);
@@ -176,15 +177,15 @@ async function main() {
     check((await call('/portal/invites', { token: tPro1 })).status === 403, 'pendente recebe 403 ao listar convites');
 
     const nTok = tokenOf(proNutriInvite.link);
-    check((await accept(nTok, { ...newUser('nutri'), registrationCouncil: 'CREF', registrationNumber: '1234' })).status === 400, 'nutricionista com CREF => 400');
-    r = await accept(nTok, { ...newUser('nutri'), registrationCouncil: 'CRN', registrationNumber: 'CRN-3 12345' });
+    check((await accept(nTok, { ...newUser('nutri'), registrationState: 'SP', registrationCouncil: 'CREF', registrationNumber: '1234' })).status === 400, 'nutricionista com CREF => 400');
+    r = await accept(nTok, { ...newUser('nutri'), registrationState: 'SP', registrationCouncil: 'CRN', registrationNumber: 'CRN-3 12345' });
     check(r.status === 400, 'número com espaço => 400');
-    r = await accept(nTok, { ...newUser('nutri'), registrationCouncil: 'CRN', registrationNumber: '12345' });
+    r = await accept(nTok, { ...newUser('nutri'), registrationState: 'SP', registrationCouncil: 'CRN', registrationNumber: '12345' });
     check(r.status === 201 && r.body.user.validationStatus === 'pending', 'nutricionista com CRN fica pending');
     const nutriId = (await dbUser(newUser('nutri').email)).id as string;
     for (const [n, role, council, ok] of [['corr', 'running_coach', 'SEM_CONSELHO', true], ['cic', 'cycling_coach', 'CREF', true], ['psi', 'psychologist', 'CRP', true], ['psibad', 'psychologist', 'SEM_CONSELHO', false]] as const) {
       const inv = await create(tAdmin, { role });
-      const rr = await accept(tokenOf(inv.body.link), { ...newUser(n), registrationCouncil: council, registrationNumber: council === 'SEM_CONSELHO' ? undefined : '999' });
+      const rr = await accept(tokenOf(inv.body.link), { ...newUser(n), registrationState: 'SP', registrationCouncil: council, registrationNumber: council === 'SEM_CONSELHO' ? undefined : '999' });
       check(ok ? rr.status === 201 && rr.body.user.validationStatus === 'pending' : rr.status === 400, `${role} com ${council}: ${ok ? 'aceito e pendente' : 'recusado (400)'}`, rr.body);
     }
     const corr = await dbUser(newUser('corr').email);

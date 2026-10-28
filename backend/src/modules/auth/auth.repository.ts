@@ -47,14 +47,14 @@ export async function insertUser(
   passwordHash: string,
   role: Role,
   /** Só para profissionais: nascem 'pending' com o registro informado; o administrador valida depois. */
-  registration?: { council: string; number: string | null },
+  registration?: { council: string; number: string | null; state: string },
 ): Promise<UserRow | null> {
   const { rows } = await pool.query<UserRow>(
-    `INSERT INTO users (name, email, password_hash, role, validation_status, registration_council, registration_number)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO users (name, email, password_hash, role, validation_status, registration_council, registration_number, registration_state)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT DO NOTHING
      RETURNING *`,
-    [name, email, passwordHash, role, registration ? 'pending' : 'approved', registration?.council ?? null, registration?.number ?? null],
+    [name, email, passwordHash, role, registration ? 'pending' : 'approved', registration?.council ?? null, registration?.number ?? null, registration?.state ?? null],
   );
   return rows[0] ?? null;
 }

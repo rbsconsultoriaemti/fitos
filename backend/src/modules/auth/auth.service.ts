@@ -73,7 +73,7 @@ async function issueRefreshToken(userId: string, familyId: string, db?: Paramete
 
 export async function register(input: RegisterInput): Promise<AuthResult> {
   // Profissional se cadastra com o registro no conselho e entra pendente até o administrador validar.
-  const registration = isProfessionalRole(input.role) ? normalizeRegistration(input.role, input.registrationCouncil, input.registrationNumber) : undefined;
+  const registration = isProfessionalRole(input.role) ? normalizeRegistration(input.role, input.registrationCouncil, input.registrationNumber, input.registrationState) : undefined;
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
   const user = await insertUser(input.name, input.email, passwordHash, input.role, registration);
   if (!user) throw new AppError(409, 'email_in_use', 'E-mail já cadastrado');
