@@ -43,7 +43,7 @@ Não há outros desenvolvedores. Cada sessão começa lendo este arquivo.
 5. **Ciclismo** — FTP, TSS, zonas de potência, import FIT/Strava _(não iniciado)_
 6. **Psicologia** — sessões, notas criptografadas, check-in de humor, metas _(não iniciado)_
 
-Transversais já feitos: onboarding com plano de treino e plano alimentar gerados pela Claude API, preferências alimentares (gosto / não gosto), cotas por plano (backend) e painel do professor.
+Transversais já feitos: onboarding com plano de treino e plano alimentar gerados pela Claude API, preferências alimentares (gosto / não gosto), cotas por plano (backend), painel do professor e portal web em `/admin` (usuários e papéis, convites por papel e validação de profissionais, no ar desde 28/10/2026).
 
 ---
 
@@ -65,7 +65,9 @@ Roles no banco: `student | trainer | running_coach | cycling_coach | nutritionis
 
 ## Regras de negócio críticas
 
-- Profissionais convidam alunos via link com token (tabela `invites`)
+- Profissionais convidam alunos via link com token (tabela `invites`; o banco guarda só o hash SHA-256)
+- Profissional entra `pending` e só atua depois que o administrador valida conselho, UF e número; a rejeição é final pela API
+- Administrador da plataforma é o marcador `users.is_platform_admin`, nunca atribuído por convite ou formulário
 - `daily_summaries` é tabela derivada — gerada por job noturno, não em tempo real
 - `clinical_notes` NUNCA são acessadas pela IA — criptografia AES-256, chave só do psicólogo
 - `workout_plans.source` = `'ai' | 'trainer' | 'self'`
@@ -91,10 +93,10 @@ Roles no banco: `student | trainer | running_coach | cycling_coach | nutritionis
 ## Tabelas principais do banco (PostgreSQL)
 
 ### Módulo usuários
-- `users` (id, name, email, password_hash, role, is_active, created_at)
+- `users` (id, name, email, password_hash, role, is_active, created_at, is_platform_admin, validation_status, registration_council, registration_number, registration_state, validated_by, validated_at)
 - `profiles` (id, user_id, weight_kg, height_cm, birth_date, goal, fitness_level, restrictions[])
 - `subscriptions` (id, user_id, plan, status, expires_at, revenuecat_id)
-- `invites` (id, sender_id, role, token, status, expires_at)
+- `invites` (id, sender_id, role, email, token (hash), status, expires_at, used_at, revoked_at); `invite_audit_log` e `admin_audit_log` são somente de inserção (trigger recusa UPDATE e DELETE)
 
 ### Vínculos profissional → aluno
 - `trainer_student` (id, trainer_id, student_id, status, linked_at)
@@ -176,7 +178,9 @@ fitos/
 │   │   │   │   └── STATUS.md
 │   │   │   ├── preferences/   ← preferências alimentares (food_preferences, /preferences/foods)
 │   │   │   │   └── STATUS.md
-│   │   │   ├── quotas/        ← cotas por plano (usage_quotas, GET /quotas)
+│   │   │   ├── portal/        ← portal web (/portal/*: login, me, usuários, convites, validação de profissionais)
+│   │   │   └── STATUS.md
+│   │   ├── quotas/        ← cotas por plano (usage_quotas, GET /quotas)
 │   │   │   │   └── STATUS.md
 │   │   │   ├── trainer/       ← painel do professor (/trainer/students...)
 │   │   │   │   └── STATUS.md
@@ -216,7 +220,7 @@ Eu produzo o diff exato para você colar nos arquivos STATUS.md e PROXIMOS_PASSO
 
 ### Estado atual do projeto
 - Fase: DESENVOLVIMENTO ATIVO
-- Último commit: 436d65d (a atualização de documentação desta sessão ainda não foi commitada)
+- Último commit: 06fab4f (UF do registro profissional; convites, validação de profissionais e portal `/admin` etapa 2 já no ar, deployados e testados no navegador em 28/10/2026)
 - Módulos prontos: Auth, Musculação, Nutrição (foto→calorias com edição, código de barras, favoritas, meta dinâmica, água com fila offline), onboarding com plano de treino e plano alimentar pela Claude API, notificações locais com tela de configurações
 - Cotas por plano: backend pronto e testado (`npm run test:quotas`; migration 018, `GET /quotas`, 429 `quota_exceeded`). App: contador de fotos restantes e aviso de liberação em `mobile/src/lib/quotas.ts` e `food/photo.tsx` (`tsc` OK; NÃO testado no aparelho). Falta o aviso no app quando o plano de treino por IA não está liberado (o onboarding ainda não trata o 429) e a verificação do plano pago via RevenueCat
 - Dashboard do professor: concluído no código (backend `/trainer/students[/:id]`, `suggest-plan`, telas e prescrição; `npm run test:trainer`). Falta testar no aparelho e subir na VPS (sem migration nova)
@@ -228,5 +232,5 @@ Eu produzo o diff exato para você colar nos arquivos STATUS.md e PROXIMOS_PASSO
   e por fim `docker compose up -d --build`
 - Logs: `docker logs fitos-fitos-api-1 --tail 50` e `docker logs fitos-ai-service-1 --tail 50`
 - App mobile em produção: APK release gerado localmente (`C:\fx\mobile\android`: `.\gradlew.bat assembleRelease`)
-- O projeto vive em `C:\fx`. Última migration: `019_food-preferences`; quais já rodaram na VPS: não verificado
+- O projeto vive em `C:\fx`. Última migration: `1700000000023_registration-state`, aplicada na VPS em 28/10/2026 (backup `pre-023`)
 - Próximo: testar no aparelho (APK novo), subir na VPS (git pull + migrations pendentes + `docker compose up -d --build`) e depois o módulo de Corrida. Ver PROXIMOS_PASSOS.md
