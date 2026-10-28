@@ -17,6 +17,7 @@ export interface UserRow {
   password_hash: string;
   role: Role;
   is_active: boolean;
+  is_platform_admin: boolean;
   created_at: Date;
 }
 

@@ -217,3 +217,59 @@ Mantém 14 dias de backup local. Copie periodicamente para fora do servidor (dad
 - `apt install -y fail2ban` para barrar tentativas de força bruta no SSH.
 - A API usa `cors()` aberto: restringir as origens antes do lançamento.
 - Porta 3000 e 5432 não estão abertas no `ufw` — confirme com `ufw status`.
+
+---
+
+## Portal /admin (proposta)
+
+**Proposta, não aplicada.** O `docker-compose.yml` só existe na VPS e não foi alterado. Os nomes marcados *(confirmar)* precisam ser conferidos no compose real antes de colar.
+
+O portal (`web/`) é um container nginx que serve só `/admin/*`. O Traefik escolhe o serviço pelo caminho; a API continua na raiz e em todas as rotas atuais, incluindo `/portal/*` (login do portal por cookie), que é da API, não do container web.
+
+Serviço novo no compose (sem `ports:`, nada publicado no host):
+
+```yaml
+  web:
+    build: ./web
+    restart: unless-stopped
+    networks:
+      - <rede-do-traefik>            # (confirmar) a mesma rede em que a API já está
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.fitos-web.rule=Host(`fitos.rbsconsulting.com.br`) && PathPrefix(`/admin`)
+      - traefik.http.routers.fitos-web.entrypoints=websecure          # (confirmar) nome do entrypoint HTTPS
+      - traefik.http.routers.fitos-web.tls.certresolver=<resolver>    # (confirmar) o mesmo da API
+      - traefik.http.routers.fitos-web.priority=100
+      - traefik.http.services.fitos-web.loadbalancer.server.port=80
+```
+
+Prioridade: o Traefik ordena por prioridade e, em empate, pelo tamanho da regra. A regra do portal (`Host && PathPrefix(/admin)`) é mais específica que a da API (provavelmente só `Host(...)`), mas fixar `priority=100` evita depender disso. **Não mude a regra da API**; só confirme que ela não tem uma `priority` explícita maior que 100 (se tiver, aumente a do portal acima dela). Pedido original: "regra extra `Host && PathPrefix(/admin)` com prioridade maior que a da API" — entendi que essa regra pertence ao serviço `web`, não à API.
+
+Checagens depois de subir (na VPS):
+- `curl -sI https://fitos.rbsconsulting.com.br/admin/` → 200 e `curl -s https://fitos.rbsconsulting.com.br/health` → `ok` (a API não pode ter sido capturada pela regra nova).
+- `curl -sI https://fitos.rbsconsulting.com.br/admin/usuarios` → 200 (fallback SPA).
+- O cookie do refresh só recebe o atributo `Secure` se a API roda com `NODE_ENV=production` *(confirmar no `.env`/compose)*. Sem isso o login funciona, mas o cookie perde a proteção `Secure`.
+- Deploy: `docker compose up -d --build` já constrói o `web`. Sem migration nova nesta etapa.
+
+---
+
+## Migration 020 e administrador da plataforma (no host da VPS)
+
+A migration `1700000000020_platform-admin.sql` só adiciona `users.is_platform_admin` (padrão `false`; não altera dados). O marcador **só** muda pelo script abaixo, que roda no host (usa o `backend/node_modules` já instalado). Faça o backup antes (a pasta `/var/backups/fitos` precisa existir).
+
+```bash
+# [root] na VPS
+cd /var/www/fitos && git pull
+mkdir -p /var/backups/fitos
+sudo -u postgres pg_dump fitos | gzip > /var/backups/fitos/fitos-pre020-$(date +%F).sql.gz
+export DATABASE_URL="postgres://fitos:$(cat /root/fitos_db_pass.txt)@127.0.0.1:5432/fitos"
+npm run --prefix backend migrate:up
+npm run --prefix backend grant-platform-admin -- --email EMAIL_DA_CONTA_NO_APP
+docker compose up -d --build
+```
+
+- O e-mail precisa ser de uma conta que já existe no app. Se não existir, o script sai com erro e não cria nada.
+- Revogar: o mesmo comando com `--revoke` no final. Vale na próxima requisição (não espera o JWT expirar).
+- Cada execução acrescenta uma linha em `/var/www/fitos/backend/logs/platform-admin.log` (a pasta é criada pelo script e fica fora do git).
+- No PC: `cd C:\fx\backend; npm run grant-platform-admin -- --email EMAIL` (com a `DATABASE_URL` do `.env`).
+- Ordem: migration antes do `docker compose up -d --build`, porque o código novo lê a coluna.

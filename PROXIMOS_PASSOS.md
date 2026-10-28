@@ -19,8 +19,33 @@ Feito (detalhes nos STATUS.md de cada módulo):
 3i. Preferências alimentares (gosto / não gosto / indiferente): backend (migration 019, `preferences/`, `test:preferences`), prompt da IA, ordenação da busca e etapa 6 do onboarding + Perfil > Minhas preferências — escrito e testado no backend; app sem teste no aparelho; IA real não verificada
 3h. Visual estilo iOS (tema azul, títulos grandes, divisores) e safe area nas telas de pilha — aplicado no código, `tsc` OK, pendente de verificação no aparelho
 
+## Próximo passo: Portal web (administração e profissionais)
+
+**Etapa 1 (base) pronta no código, aguardando aprovação para a etapa 2:** `web/` (login, guarda de rota, tela Usuários vazia), `/portal/login|refresh|logout|me` no backend com refresh token em cookie httpOnly, `npm run test:admin-role`, Dockerfile e proposta de labels do Traefik (DEPLOY_VPS.md, "Portal /admin (proposta)"). Detalhes em `web/STATUS.md`. Pendente da etapa 1: validar a interface no navegador e o container na VPS; aplicar as labels no compose real.
+
+**Acesso (decidido depois da etapa 1):** o portal aceita qualquer conta ativa; a permissão é por rota, conferida no banco, com `is_platform_admin` separado de `role`. Passo 1 feito (migration 020, script, middlewares, `/portal/me`); falta o passo 2 (telas) e rodar a migration 020 na VPS (comandos em DEPLOY_VPS.md).
+
+**Segurança, a fazer:** o `cors()` da API está aberto (`backend/src/app.ts`). O portal usa o mesmo domínio e não precisa de CORS; restringir às origens necessárias (o app mobile nativo não depende de CORS) antes do lançamento. Também faltam limite de tentativas de login e `NODE_ENV=production` confirmado na VPS (cookie `Secure`).
+
+Decidido com o dono do projeto (27/10/2026): o portal atende **administradores e profissionais** (treinador, nutricionista, psicólogo e os demais papéis) e vem **antes do espaço do professor**. Alunos continuam só no app mobile.
+
+Escopo da primeira versão:
+- **Usuários e papéis**: listar, buscar, ativar/desativar conta e trocar o papel (aluno, profissional, admin).
+- **Assinaturas e cotas**: plano de cada usuário, status da assinatura e uso das cotas (fotos e planos por IA), usando `GET /quotas` e os dados de `subscriptions`.
+- **Catálogos**: exercícios, alimentos e itens da lista de preferências (incluir, editar, ocultar).
+- **Métricas de uso**: usuários ativos, fotos reconhecidas, planos gerados e custo estimado da IA.
+
+Tecnologia (decidido): **React + Vite** em `web/`, no mesmo repositório, consumindo a mesma API. Publicado como container estático atrás do Traefik (sem mudar o padrão de deploy da API).
+
+Pontos em aberto antes de começar:
+- ~~Endereço~~ decidido: `https://fitos.rbsconsulting.com.br/admin`, mesmo domínio da API.
+- ~~Autenticação~~ feita na etapa 1: login por `/portal/login`, access token em memória, refresh em cookie httpOnly, papel conferido no banco.
+- Endpoints de administração: ainda não existem. Cada tela nova precisa de rota com checagem de papel `admin` ou `trainer`, e teste automatizado.
+- Observação: o portal descrito como "web" que você usava antes não está publicado nesta VPS. Hoje o domínio serve só a API (a raiz responde 404 do Express). Por isso o portal será construído do zero.
+
 ## Fazer agora (precisa de você)
-- [ ] VPS (fluxo único em DEPLOY_VPS.md): `cd /var/www/fitos && git pull`; `migrate:up` com a `DATABASE_URL` do DEPLOY_VPS.md para aplicar o que faltar até a **019** (quais já rodaram na VPS: não verificado); `docker compose up -d --build` (reconstrói API e ai-service, que precisa do código sem `temperature` e com `hints`). Sem `pm2`, `npm ci` ou `chown` no host
+- [x] VPS atualizada em 27/10/2026: código em `fe0b595`, migrations 1 a 19 aplicadas, containers da API e do ai-service reconstruídos; health `ok`. Backup do estado atual feito, mas o backup pré-019 não foi feito (a pasta de backup não existia). Antes do próximo deploy, criar `/var/backups/fitos` e fazer o backup antes do `migrate:up`
+- [ ] Pendência do deploy: o `docker-compose.yml` e o `backend/Dockerfile` continuam só na VPS (untracked); versionar. A documentação do DEPLOY_VPS.md diz que o `.env` fica na raiz, mas o compose lê `./backend/.env`; corrigir o documento. O Nginx do host (`/etc/nginx/sites-enabled/fitos`) está parado e é um resto da época de PM2; remover a configuração depois de confirmar que nada depende dela
 - [ ] APK novo release gerado localmente (`cd C:\fx\mobile\android; .\gradlew.bat assembleRelease`): módulos nativos expo-camera, expo-image-picker e **expo-notifications**, telas novas, tema azul e splash/cor de notificação novas. Sem isso o app instalado mostra nomes antigos e não agenda lembretes
 - [ ] Testar em aparelho: foto → calorias (editar, adicionar, contador de cotas), código de barras, widget de água offline/online, notificação de teste (Configurações > Notificações), onboarding completo (agora com a etapa de preferências alimentares) e Perfil > Minhas preferências, painel do professor, e o visual novo (botão "Analisar foto" acima da barra do Android, títulos grandes, divisores)
 - [ ] Primeira geração real com a Claude (onboarding e foto): conferir qualidade do prompt (`onboarding/plan-generator.ts`, `ai-service/app/vision.py`), custo e latência
@@ -53,6 +78,8 @@ Limites: **gratuito** = 10 fotos a cada 30 dias + 1 plano de treino por IA a cad
 - Rascunho de dieta por IA → nutricionista revisa → aprova (fluxo do CLAUDE.md)
 
 ## Próximos módulos (não iniciados)
+0. Portal web (administração e profissionais): próximo passo, ver seção acima
+0b. Espaço do professor no portal (depois do portal; o painel mobile já existe)
 4. Corrida
 5. Ciclismo
 6. Psicologia
