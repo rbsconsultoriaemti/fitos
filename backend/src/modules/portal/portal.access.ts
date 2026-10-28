@@ -54,3 +54,9 @@ export const requirePlatformAdmin = guard((a) => a.isPlatformAdmin);
 
 /** Profissional (papel de profissional) ou administrador da plataforma. Use depois de `requireAuth`. */
 export const requireProfessional = guard((a) => a.isPlatformAdmin || PROFESSIONAL_ROLES.includes(a.role));
+
+/** Defesa extra contra CSRF além do SameSite=Strict: um formulário de outro site não consegue mandar este cabeçalho. */
+export function requirePortalHeader(req: Request, _res: Response, next: NextFunction) {
+  if (req.headers['x-fitos-portal'] !== '1') return next(new AppError(400, 'portal_header_missing', 'Requisição inválida'));
+  next();
+}

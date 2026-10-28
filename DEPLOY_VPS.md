@@ -273,3 +273,20 @@ docker compose up -d --build
 - Cada execução acrescenta uma linha em `/var/www/fitos/backend/logs/platform-admin.log` (a pasta é criada pelo script e fica fora do git).
 - No PC: `cd C:\fx\backend; npm run grant-platform-admin -- --email EMAIL` (com a `DATABASE_URL` do `.env`).
 - Ordem: migration antes do `docker compose up -d --build`, porque o código novo lê a coluna.
+
+## Migration 021 (trilha de auditoria do portal)
+
+A migration `1700000000021_admin-audit-log.sql` cria a tabela `admin_audit_log` (somente inserção: um gatilho recusa UPDATE e DELETE) e a função do gatilho. Não altera dados existentes. Sem ela, a tela Usuários e papéis falha ao gravar mudanças. Faça o backup antes e rode a migration antes do `docker compose up -d --build`:
+
+```bash
+# [root] na VPS
+cd /var/www/fitos && git pull
+mkdir -p /var/backups/fitos
+sudo -u postgres pg_dump fitos | gzip > /var/backups/fitos/fitos-pre021-$(date +%F).sql.gz
+DATABASE_URL="postgres://fitos:$(cat /root/fitos_db_pass.txt)@127.0.0.1:5432/fitos" npm run --prefix backend migrate:up
+docker compose up -d --build
+```
+
+- Desativar uma conta no portal revoga os refresh tokens dela: a sessão no app também cai e o aluno precisa entrar de novo. O "último acesso" mostrado na tela é a data do refresh token mais recente da conta, não um registro de login.
+- **O marcador `is_platform_admin` não é editável pela API nem pelo portal.** A tela só o mostra; conceder e revogar continua exclusivamente pelo script `grant-platform-admin` (seção acima).
+- Reverter (`migrate:down`) apaga a tabela de auditoria e todo o histórico: faça backup antes.

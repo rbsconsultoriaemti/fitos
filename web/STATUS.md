@@ -1,6 +1,6 @@
 # STATUS — web (portal de administração e profissionais)
 
-- Estado: **etapa 1 (base) pronta no código**; telas de negócio (etapa 2) NÃO começaram. `npm run build` e `tsc --noEmit` OK; login, cookie e refresh conferidos com `curl` pelo proxy do Vite. NÃO verificado: a interface num navegador, o Dockerfile (sem Docker nesta máquina) e o roteamento no Traefik.
+- Estado: **etapa 1 (base) pronta no código**; etapa 2: só a tela Usuários e papéis foi feita (as demais não começaram). `npm run build` e `tsc --noEmit` OK; login, cookie e refresh conferidos com `curl` pelo proxy do Vite. NÃO verificado: a interface num navegador, o Dockerfile (sem Docker nesta máquina) e o roteamento no Traefik.
 - Stack: React 19 + Vite 7 + TypeScript + react-router-dom 7. `base: '/admin/'`, `BrowserRouter basename="/admin"`. Endereço final: `https://fitos.rbsconsulting.com.br/admin`, mesmo domínio da API (não precisa de CORS).
 
 ## Rodar
@@ -19,6 +19,6 @@
 - `Dockerfile` (build com Node + nginx:alpine, fallback SPA em `/admin/*`, porta interna 80, sem porta publicada) e `nginx.conf`. A proposta de labels do Traefik está em DEPLOY_VPS.md ("Portal /admin (proposta)"). O `docker-compose.yml` ainda não foi alterado (só existe na VPS).
 
 ## Pendências
-- Etapa 2: Usuários e papéis, Assinaturas e cotas, Catálogos, Métricas de uso — cada uma com rota de backend atrás de `requireAuth` + `requirePortalAccess` + `requirePlatformAdmin` ou `requireProfessional` e teste.
+- Etapa 2, **Usuários e papéis pronta no código** (`/usuarios` e `/usuarios/:id`, `pages/Users.tsx` e `pages/UserDetail.tsx`; build e `tsc` OK; interface NÃO verificada num navegador): busca por nome/e-mail, tabela (nome, e-mail, papel, ativo, marcador) com paginação de 50, detalhe com troca de papel (só papéis de negócio), ativar/desativar com confirmação, marcador somente leitura e histórico de alterações. Desativar uma conta revoga as sessões dela, inclusive no app (o aluno precisa entrar de novo). "Último acesso" é a data do refresh token mais recente, não um registro de login. Botões desabilitados mostram o motivo vindo do backend (`protections`: própria conta, último administrador). Erros 403/401 usam o `ErrorNotice`. Restam: Assinaturas e cotas, Catálogos, Métricas de uso — cada uma com rota de backend atrás de `requireAuth` + `requirePortalAccess` + `requirePlatformAdmin` ou `requireProfessional` e teste.
 - Limite de tentativas no login do portal (hoje a API não limita nenhum login).
 - Testar a interface num navegador e o container na VPS.

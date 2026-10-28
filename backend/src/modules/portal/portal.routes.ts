@@ -5,7 +5,8 @@ import { config } from '../../shared/config';
 import { requireAuth } from '../auth/auth.middleware';
 import { loginSchema } from '../auth/auth.schemas';
 import * as auth from '../auth/auth.service';
-import { requirePortalAccess } from './portal.access';
+import { adminUsersRouter } from './admin-users.routes';
+import { requirePortalAccess, requirePortalHeader } from './portal.access';
 
 const COOKIE = 'fitos_portal_rt';
 const COOKIE_PATH = '/portal'; // o navegador só envia o cookie para estas rotas, nunca para o resto da API
@@ -24,12 +25,6 @@ function setRefreshCookie(res: Response, token: string) {
 }
 function clearRefreshCookie(res: Response) {
   res.append('Set-Cookie', `${COOKIE}=; Path=${COOKIE_PATH}; Max-Age=0; HttpOnly; SameSite=Strict${config.env === 'production' ? '; Secure' : ''}`);
-}
-
-/** Defesa extra contra CSRF além do SameSite=Strict: um formulário de outro site não consegue mandar este cabeçalho. */
-function requirePortalHeader(req: Request, _res: Response, next: NextFunction) {
-  if (req.headers['x-fitos-portal'] !== '1') return next(new AppError(400, 'portal_header_missing', 'Requisição inválida'));
-  next();
 }
 
 export const portalRouter = Router();
@@ -86,3 +81,5 @@ portalRouter.get(
     res.json({ ...user, isPlatformAdmin: req.account!.isPlatformAdmin });
   }),
 );
+
+portalRouter.use('/admin', adminUsersRouter);

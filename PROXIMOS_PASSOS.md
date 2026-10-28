@@ -30,7 +30,7 @@ Feito (detalhes nos STATUS.md de cada módulo):
 Decidido com o dono do projeto (27/10/2026): o portal atende **administradores e profissionais** (treinador, nutricionista, psicólogo e os demais papéis) e vem **antes do espaço do professor**. Alunos continuam só no app mobile.
 
 Escopo da primeira versão:
-- **Usuários e papéis**: listar, buscar, ativar/desativar conta e trocar o papel (aluno, profissional, admin).
+- ~~**Usuários e papéis**~~ (pronto no código em 28/10/2026, `npm run test:admin-users`): listar, buscar, paginar, ativar/desativar conta e trocar o papel de negócio (aluno ou um dos profissionais), com auditoria em `admin_audit_log` (migration 021). O papel `admin` não é atribuível por aqui e o marcador `is_platform_admin` aparece só como leitura: concessão e revogação são exclusivamente pelo script `grant-platform-admin`, nunca pela API ou pela tela. Pendente: validar a interface no navegador e aplicar a migration 021 na VPS (ver DEPLOY_VPS.md).
 - **Assinaturas e cotas**: plano de cada usuário, status da assinatura e uso das cotas (fotos e planos por IA), usando `GET /quotas` e os dados de `subscriptions`.
 - **Catálogos**: exercícios, alimentos e itens da lista de preferências (incluir, editar, ocultar).
 - **Métricas de uso**: usuários ativos, fotos reconhecidas, planos gerados e custo estimado da IA.

@@ -119,3 +119,46 @@ export function describeError(err: unknown): string {
   if (err instanceof ApiError && err.status === 401) return 'Sua sessão expirou. Entre novamente.';
   return err instanceof Error ? err.message : 'Não foi possível concluir a operação.';
 }
+
+/** Papéis de negócio que a tela deixa escolher (lista só da interface; o backend valida e recusa `admin`). */
+export const ASSIGNABLE_ROLES: Role[] = ['student', 'trainer', 'running_coach', 'cycling_coach', 'nutritionist', 'psychologist'];
+
+export interface AdminUser extends User {
+  isActive: boolean;
+  isPlatformAdmin: boolean;
+  createdAt: string;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  profile: { weightKg: number | null; heightCm: number | null; goal: string | null; fitnessLevel: string | null } | null;
+  lastAccessAt: string | null;
+  /** Motivo (texto pronto) pelo qual a ação está proibida; null = permitida. Quem decide é o backend. */
+  protections: { roleChange: string | null; deactivate: string | null };
+}
+
+export interface Page<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface AuditEntry {
+  id: string;
+  actorId: string;
+  actorName: string | null;
+  actorEmail: string | null;
+  targetUserId: string;
+  action: string;
+  before: { role?: Role; isActive?: boolean };
+  after: { role?: Role; isActive?: boolean };
+  createdAt: string;
+}
+
+const PORTAL_WRITE = { 'X-Fitos-Portal': '1' };
+
+export const listAdminUsers = (q: string, page: number) => api<Page<AdminUser>>(`/portal/admin/users?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page) })}`);
+export const getAdminUser = (id: string) => api<AdminUserDetail>(`/portal/admin/users/${id}`);
+export const patchAdminUser = (id: string, body: { role?: Role; isActive?: boolean }) =>
+  api<AdminUserDetail>(`/portal/admin/users/${id}`, { method: 'PATCH', headers: PORTAL_WRITE, body: JSON.stringify(body) });
+export const listAudit = (userId: string) => api<Page<AuditEntry>>(`/portal/admin/audit?userId=${userId}`);

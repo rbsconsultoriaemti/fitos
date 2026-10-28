@@ -3,6 +3,7 @@ import { ROLE_LABELS } from './api';
 import { AuthProvider, useAuth } from './auth';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import UserDetail from './pages/UserDetail';
 import Users from './pages/Users';
 
 /** Guarda de rota: sem sessão confirmada pelo backend, volta para o login. */
@@ -53,6 +54,7 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route path="/" element={<Home />} />
             <Route path="/usuarios" element={<Users />} />
+            <Route path="/usuarios/:id" element={<UserDetail />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
