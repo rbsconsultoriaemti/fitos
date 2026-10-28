@@ -79,7 +79,7 @@ portalRouter.get(
   requirePortalAccess,
   wrap(async (req, res) => {
     const user = await auth.getMe(req.auth!.sub);
-    res.json({ ...user, isPlatformAdmin: req.account!.isPlatformAdmin });
+    res.json({ ...user, isPlatformAdmin: req.account!.isPlatformAdmin, validationStatus: req.account!.validationStatus });
   }),
 );
 

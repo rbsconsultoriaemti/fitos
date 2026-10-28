@@ -11,8 +11,33 @@ export interface User {
 export const PROFESSIONAL_ROLES: Role[] = ['trainer', 'running_coach', 'cycling_coach', 'nutritionist', 'psychologist'];
 
 /** Resposta de `GET /portal/me`: a conta conferida no banco. */
+export type ValidationStatus = 'pending' | 'approved' | 'rejected';
+
 export interface PortalUser extends User {
   isPlatformAdmin: boolean;
+  /** Profissional novo nasce 'pending' até o administrador validar. Alunos e contas antigas são 'approved'. */
+  validationStatus: ValidationStatus;
+}
+
+/** Conselho de registro aceito por papel (espelha `shared/professional-registration.ts`; o backend valida de novo). */
+export type Council = 'CRN' | 'CREF' | 'CRP' | 'SEM_CONSELHO';
+export const COUNCILS_BY_ROLE: Partial<Record<Role, Council[]>> = {
+  nutritionist: ['CRN'],
+  psychologist: ['CRP'],
+  trainer: ['CREF'],
+  running_coach: ['CREF', 'SEM_CONSELHO'],
+  cycling_coach: ['CREF', 'SEM_CONSELHO'],
+};
+export const COUNCIL_LABELS: Record<Council, string> = {
+  CRN: 'CRN (nutrição)',
+  CREF: 'CREF (educação física)',
+  CRP: 'CRP (psicologia)',
+  SEM_CONSELHO: 'Sem conselho',
+};
+
+/** Pode ver e usar a tela de convites: administrador, ou profissional já validado. */
+export function canInvite(user: PortalUser): boolean {
+  return user.isPlatformAdmin || (PROFESSIONAL_ROLES.includes(user.role) && user.validationStatus === 'approved');
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -164,3 +189,82 @@ export const getAdminUser = (id: string) => api<AdminUserDetail>(`/portal/admin/
 export const patchAdminUser = (id: string, body: { role?: Role; isActive?: boolean }) =>
   api<AdminUserDetail>(`/portal/admin/users/${id}`, { method: 'PATCH', headers: PORTAL_WRITE, body: JSON.stringify(body) });
 export const listAudit = (userId: string) => api<Page<AuditEntry>>(`/portal/admin/audit?userId=${userId}`);
+
+// ---- Convites ----
+
+export type InviteStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
+
+export interface Invite {
+  id: string;
+  role: Role;
+  email: string | null;
+  status: InviteStatus;
+  createdAt: string;
+  expiresAt: string;
+  usedAt: string | null;
+  revokedAt: string | null;
+  createdBy?: { id: string; name: string };
+}
+
+/** Só na resposta da criação: o link (com o token) nunca mais aparece depois. */
+export interface CreatedInvite {
+  id: string;
+  role: Role;
+  email: string | null;
+  expiresAt: string;
+  link: string;
+}
+
+/** Dados públicos de um convite, para a tela de aceitação. */
+export interface InvitePreview {
+  role: Role;
+  expiresAt: string;
+  invitedBy: string;
+  requiresEmail: boolean;
+  requiresRegistration: boolean;
+}
+
+export interface AcceptInviteBody {
+  name: string;
+  email: string;
+  password: string;
+  registrationCouncil?: Council;
+  registrationNumber?: string;
+}
+
+export const INVITE_STATUS_LABELS: Record<InviteStatus, string> = {
+  pending: 'Pendente',
+  accepted: 'Aceito',
+  expired: 'Expirado',
+  revoked: 'Revogado',
+};
+
+export const createInvite = (body: { role: Role; email?: string; expiresInDays?: number }) =>
+  api<CreatedInvite>('/portal/invites', { method: 'POST', headers: PORTAL_WRITE, body: JSON.stringify(body) });
+export const listInvites = (page: number) => api<Page<Invite>>(`/portal/invites?page=${page}`);
+export const revokeInvite = (id: string) => api<Invite>(`/portal/invites/${id}/revoke`, { method: 'POST', headers: PORTAL_WRITE });
+/** Público (sem sessão). */
+export const describeInvite = (token: string) => request<InvitePreview>(`/portal/invites/token/${encodeURIComponent(token)}`, {}, false);
+/** Público (sem sessão). O papel vem do convite no servidor, não daqui. */
+export const acceptInvite = (token: string, body: AcceptInviteBody) =>
+  request<{ user: { id: string; name: string; email: string; role: Role; validationStatus: ValidationStatus } }>(
+    `/portal/invites/token/${encodeURIComponent(token)}/accept`,
+    { method: 'POST', headers: PORTAL_WRITE, body: JSON.stringify(body) },
+    false,
+  );
+
+// ---- Validação de profissionais (somente administrador) ----
+
+export interface PendingProfessional {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  registrationCouncil: Council | null;
+  registrationNumber: string | null;
+  createdAt: string;
+}
+
+export const listPendingProfessionals = (page: number) => api<Page<PendingProfessional>>(`/portal/admin/professionals/pending?page=${page}`);
+export const decideProfessional = (id: string, decision: 'validate' | 'reject') =>
+  api<{ id: string; validationStatus: ValidationStatus }>(`/portal/admin/professionals/${id}/${decision}`, { method: 'POST', headers: PORTAL_WRITE });

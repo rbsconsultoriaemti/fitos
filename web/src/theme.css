@@ -290,3 +290,22 @@ select:disabled {
   display: grid;
   gap: 2px;
 }
+
+/* Convites e validação */
+.danger-text {
+  color: var(--danger);
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
