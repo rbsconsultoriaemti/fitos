@@ -2,7 +2,7 @@
 
 - Estado: banco TACO, plano alimentar, log de comida e reconhecimento por foto (via ai-service) implementados. Testado com smoke test (Postgres local + ai-service real com o provedor de visão substituído por stub). Sem testes automatizados no backend.
 - Atualizado nesta etapa: foto → calorias com envio em base64 e `hints` (ingredientes), `displayName` nos alimentos + busca priorizando preparados, registro de água (`water_logs`, migration 016). Testes: `npm run test:recognize`, `test:food-names`, `test:water`, `test:water-offline`, `test:onboarding`.
-- Catálogo de pratos brasileiros: 176 itens `source='custom'` (`br-dish-001` a `176`) em `seeds/brazilian-dishes-0*.sql`, valores estimados por IA sem revisão; lote 4 ainda não aplicado na VPS. Convenções e restrições no CLAUDE.md ("Catálogo de pratos brasileiros")
+- Catálogo de pratos brasileiros: 176 itens `source='custom'` (`br-dish-001` a `176`) em `seeds/brazilian-dishes-0*.sql`, valores estimados por IA sem revisão; todos os 5 lotes aplicados na VPS (176 itens confirmados em 29/10/2026). Convenções e restrições no CLAUDE.md ("Catálogo de pratos brasileiros")
 - Migrations: `...009_create-nutrition.sql`, `...010_nutrition-search-portions-mealtype.sql` (pg_trgm + unaccent, porções, tipo de refeição), `...014_nutrition-meals-templates-energy.sql` (5 refeições, source `openfoodfacts`, `meal_templates`, `profiles.kcal_target_override`)
 - Seeds: `npm run seed:taco` · `npm run seed:portions` · `npm run seed:openfoodfacts [-- --pages N]` · Job: `npm run job:daily-summaries [YYYY-MM-DD]`
 

@@ -62,4 +62,4 @@ Em `backend/` (rodar depois das migrations; todos idempotentes):
 
 ## Migrations
 
-Ficam em `backend/src/database/migrations/` (SQL puro, via `node-pg-migrate`, seções `-- Up Migration` / `-- Down Migration`). São 19 (de `001_create-users` a `019_food-preferences`): usuários, perfis, assinaturas, convites, vínculos profissional→aluno, musculação, nutrição, onboarding, água, cotas e preferências alimentares. A lista completa está na pasta.
+Ficam em `backend/src/database/migrations/` (SQL puro, via `node-pg-migrate`, seções `-- Up Migration` / `-- Down Migration`). São 24 (de `001_create-users` a `024_revenuecat-subscriptions`): usuários, perfis, assinaturas, convites, vínculos profissional→aluno, musculação, nutrição, onboarding, água, cotas, preferências alimentares, administrador da plataforma, auditoria do portal, validação de profissionais, UF do registro e assinaturas via RevenueCat (a 024 ainda não está commitada nem aplicada na VPS). A lista completa está na pasta.
