@@ -63,15 +63,23 @@ export function foodOut(r: any) {
  * ("Frango grelhado" antes de "Coração de frango grelhado"); o resto segue a relevância da consulta (sort estável).
  */
 function rankByState<T extends { name: string; source: string; category: string | null }>(rows: T[], q: string): T[] {
-  const first = q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).find(Boolean) ?? '';
+  const norm = (text: string) => text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const first = norm(q).split(/[^a-z0-9]+/).find(Boolean) ?? '';
   const key = (r: T) => {
-    const shown = displayFoodName(r.name, r.source, r.category);
-    const starts = shown.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').startsWith(first) ? 0 : 1;
-    return [foodStateRank(r.name, r.source, r.category), starts, shown.length];
+    const shown = norm(displayFoodName(r.name, r.source, r.category));
+    const word1 = shown.split(/[^a-z0-9]+/).find(Boolean) ?? '';
+    // Relevância da busca vem antes do preparo: "cha" acha "Chá preto" antes de "Charque cozido" e "Pão na chapa".
+    return [
+      word1 === first ? 0 : 1, // primeira palavra igual ao termo ("Chá", "Café")
+      shown.startsWith(first) ? 0 : 1, // nome começa pelo termo
+      foodStateRank(r.name, r.source, r.category), // preparado antes de cru, como antes
+      shown.length,
+    ];
   };
   return [...rows].sort((a, b) => {
     const [ka, kb] = [key(a), key(b)];
-    return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2];
+    for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return ka[i] - kb[i];
+    return 0;
   });
 }
 
