@@ -144,6 +144,17 @@ Roles no banco: `student | trainer | running_coach | cycling_coach | nutritionis
 - `wellbeing_goals` (id, patient_id, psychologist_id, title, description, status, target_date)
 - `goal_checkins` (id, goal_id, patient_id, status, notes, logged_at)
 
+### Catálogo de pratos brasileiros (tabela `foods`)
+- Pedidos reais que a busca não achava (camarão internacional, misto quente completo, pingado, vitaminas, arroz biro-biro) levaram a um catálogo de pratos prontos em `foods`, criado por seeds SQL em `backend/src/database/seeds/brazilian-dishes-01-base.sql`, `-02-portions.sql`, `-03-batch2.sql`, `-04-batch3.sql` e `-05-batch4.sql` (176 itens, `br-dish-001` a `176`).
+- Convenções: `source='custom'` (sem migration), `external_id` sequencial `br-dish-NNN`, `category='Alimentos preparados'`, valores por 100 g (ou 100 ml) **estimados por IA, sem revisão**. Porções no formato `[{"grams": N, "label": "prato"}]` (rótulos usados: prato, porção, unidade, fatia, copo, xícara, tigela, lata, taça, espeto, bola, colher). Próximo id livre: `br-dish-177`.
+- Lotes: 1 (`001`–`049`, pratos compostos, mais um UPDATE de porções), 2 (`050`–`071`, bebidas, vitaminas e café da manhã), 3 (`072`–`156`, marmitas, churrasco, sopas, acompanhamentos, doces, japonês, bebidas), 4 (`157`–`176`, acompanhamentos de boteco carioca).
+- Restrições do schema (conferidas nas migrations 009, 010 e 014):
+  - `name_search` é coluna gerada: nunca inserir.
+  - `foods_source_check` só aceita `taco`, `custom` e `openfoodfacts`; um `source` novo exige migration.
+  - Não existe unique em `(name, source)`. Os únicos são `lower(name)` para `custom` e `(source, external_id)`; por isso os seeds de lote usam `ON CONFLICT DO NOTHING` (o `-02-portions.sql` é só UPDATE).
+- Aplicar na VPS: ver DEPLOY_VPS.md, "Catálogo de pratos brasileiros (seeds)". O backup lá é `sudo -u postgres pg_dump` (o role `root` não existe no Postgres).
+- Remover um lote: `DELETE FROM foods WHERE source='custom' AND external_id LIKE 'br-dish-%'`, só se nenhum item tiver sido registrado em `food_logs`/`meal_foods` (FKs).
+
 ---
 
 ## Compliance obrigatório antes do lançamento
@@ -220,7 +231,8 @@ Eu produzo o diff exato para você colar nos arquivos STATUS.md e PROXIMOS_PASSO
 
 ### Estado atual do projeto
 - Fase: DESENVOLVIMENTO ATIVO
-- Último commit: 06fab4f (UF do registro profissional; convites, validação de profissionais e portal `/admin` etapa 2 já no ar, deployados e testados no navegador em 28/10/2026)
+- Último commit: 65f7368 (seeds: lote 4 do catálogo de pratos brasileiros). Antes: 06fab4f (UF do registro profissional; convites, validação de profissionais e portal `/admin` etapa 2 já no ar, deployados e testados no navegador em 28/10/2026)
+- Catálogo de pratos brasileiros em `foods` (sessão de 29/10/2026): 176 itens em 5 arquivos de seed, commitados. Lotes 1 a 3 (156 itens) aplicados na VPS em 29/10/2026, com backup antes de cada um. Lote 4 (`br-dish-157` a `176`, `-05-batch4.sql`): commitado, mas NÃO consta que tenha sido aplicado na VPS (pendente). Valores estimados por IA, sem revisão; busca e registro no aparelho NÃO testados. Detalhes na seção "Catálogo de pratos brasileiros"
 - Módulos prontos: Auth, Musculação, Nutrição (foto→calorias com edição, código de barras, favoritas, meta dinâmica, água com fila offline), onboarding com plano de treino e plano alimentar pela Claude API, notificações locais com tela de configurações
 - Cotas por plano: backend pronto e testado (`npm run test:quotas`; migration 018, `GET /quotas`, 429 `quota_exceeded`). App: contador de fotos restantes e aviso de liberação em `mobile/src/lib/quotas.ts` e `food/photo.tsx` (`tsc` OK; NÃO testado no aparelho). Falta o aviso no app quando o plano de treino por IA não está liberado (o onboarding ainda não trata o 429) e a verificação do plano pago via RevenueCat
 - Dashboard do professor: concluído no código (backend `/trainer/students[/:id]`, `suggest-plan`, telas e prescrição; `npm run test:trainer`). Falta testar no aparelho e subir na VPS (sem migration nova)

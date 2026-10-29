@@ -183,6 +183,9 @@ npm run --prefix backend migrate:up
 npm run --prefix backend seed:taco                                           # 590 alimentos da TACO
 npm run --prefix backend seed:portions                                       # porções caseiras
 (cd backend && npx tsx src/database/seeds/run-sql.ts exercises.sql)          # 41 exercícios
+for f in backend/src/database/seeds/brazilian-dishes-0*.sql; do              # 176 pratos brasileiros (em ordem: 01 a 05)
+  PGPASSWORD=$(cat /root/fitos_db_pass.txt) psql -h 127.0.0.1 -U fitos -d fitos -v ON_ERROR_STOP=1 -f "$f"
+done
 
 docker compose up -d --build
 ```
@@ -210,6 +213,31 @@ CRON
 ```
 
 Mantém 14 dias de backup local. Copie periodicamente para fora do servidor (dados de saúde: LGPD).
+
+## Catálogo de pratos brasileiros (seeds)
+
+Os arquivos `backend/src/database/seeds/brazilian-dishes-0*.sql` (5 arquivos, `br-dish-001` a `176`) inserem pratos em `foods` (`source='custom'`). Não há migration: aplicar um lote não exige `docker compose up`. Os lotes de INSERT usam `ON CONFLICT DO NOTHING`, então reaplicar não duplica. Fazer backup antes de cada lote.
+
+```powershell
+# no PowerShell do Windows (arquivo novo, ex.: lote 4)
+scp C:\fx\backend\src\database\seeds\brazilian-dishes-05-batch4.sql root@<IP-da-VPS>:/tmp/
+```
+
+```bash
+# [root] na VPS
+mkdir -p /var/backups/fitos
+sudo -u postgres pg_dump fitos | gzip > /var/backups/fitos/fitos-pre-pratos-$(date +%F-%H%M).sql.gz
+ls -lh /var/backups/fitos | tail -3        # confirmar que o backup tem tamanho
+
+PGPASSWORD=$(cat /root/fitos_db_pass.txt) psql -h 127.0.0.1 -U fitos -d fitos -v ON_ERROR_STOP=1 -f /tmp/brazilian-dishes-05-batch4.sql
+PGPASSWORD=$(cat /root/fitos_db_pass.txt) psql -h 127.0.0.1 -U fitos -d fitos \
+  -c "SELECT count(*) FROM foods WHERE external_id LIKE 'br-dish-%';"   # 176 com os 5 lotes
+```
+
+- Alternativa sem `psql`: `cd backend && npx tsx src/database/seeds/run-sql.ts brazilian-dishes-05-batch4.sql` (com `DATABASE_URL` exportada).
+- A ordem importa só para o lote 1 e as porções: `-02-portions.sql` é UPDATE dos itens do `-01-base.sql`.
+- O role `root` não existe no Postgres: o backup é feito com `sudo -u postgres pg_dump`.
+- Remover o catálogo: `DELETE FROM foods WHERE source='custom' AND external_id LIKE 'br-dish-%';`, só se nenhum item tiver sido registrado em `food_logs`/`meal_foods` (FKs).
 
 ## Segurança (checklist rápido)
 

@@ -1,6 +1,6 @@
 # PRÓXIMOS PASSOS
 
-## Estado atual (último commit: 06fab4f — UF do registro profissional; portal etapa 2 no ar)
+## Estado atual (último commit: 65f7368 — seeds do lote 4 de pratos brasileiros; portal etapa 2 no ar desde 06fab4f)
 
 Feito (detalhes nos STATUS.md de cada módulo):
 1. ~~Auth (cadastro, login, JWT, convites)~~
@@ -19,6 +19,8 @@ Feito (detalhes nos STATUS.md de cada módulo):
 3i. Preferências alimentares (gosto / não gosto / indiferente): backend (migration 019, `preferences/`, `test:preferences`), prompt da IA, ordenação da busca e etapa 6 do onboarding + Perfil > Minhas preferências — escrito e testado no backend; app sem teste no aparelho; IA real não verificada
 3h. Visual estilo iOS (tema azul, títulos grandes, divisores) e safe area nas telas de pilha — aplicado no código, `tsc` OK, pendente de verificação no aparelho
 3k. Portal web `/admin` (administração e profissionais): etapas 1 e 2 no ar — login, usuários e papéis com auditoria, convites por papel, aceite público, validação de profissionais e UF do registro. Testado no navegador de ponta a ponta em 28/10/2026 (convite → cadastro → fila de validação)
+
+3l. Catálogo de pratos brasileiros em `foods` (29/10/2026): 176 itens (`br-dish-001` a `176`, `source='custom'`, "Alimentos preparados", valores por 100 g estimados por IA) em 5 seeds de `backend/src/database/seeds/`, commitados. Lotes 1 a 3 (156 itens) aplicados na VPS em 29/10/2026, com backup; lote 4 (20 acompanhamentos de boteco carioca) ainda NÃO aplicado na VPS. Convenções e restrições no CLAUDE.md
 
 ## Portal web (administração e profissionais)
 
@@ -64,6 +66,8 @@ Pontos já resolvidos e pendências:
 - [ ] VPS: o `docker-compose.yml` e o `backend/Dockerfile` continuam só na VPS (untracked); versionar. A documentação do DEPLOY_VPS.md diz que o `.env` fica na raiz, mas o compose lê `./backend/.env`; corrigir o documento. O Nginx do host (`/etc/nginx/sites-enabled/fitos`) está parado e é um resto da época de PM2; remover a configuração depois de confirmar que nada depende dela
 - [ ] APK novo release gerado localmente (`cd C:\fx\mobile\android; .\gradlew.bat assembleRelease`): módulos nativos expo-camera, expo-image-picker e **expo-notifications**, telas novas, tema azul e splash/cor de notificação novas. Sem isso o app instalado mostra nomes antigos e não agenda lembretes
 - [ ] Testar em aparelho: foto → calorias (editar, adicionar, contador de cotas), código de barras, widget de água offline/online, notificação de teste (Configurações > Notificações), onboarding completo (agora com a etapa de preferências alimentares) e Perfil > Minhas preferências, painel do professor, e o visual novo (botão "Analisar foto" acima da barra do Android, títulos grandes, divisores)
+- [ ] Pratos brasileiros, lote 4: aplicar `brazilian-dishes-05-batch4.sql` na VPS com backup antes (passo a passo em DEPLOY_VPS.md, "Catálogo de pratos brasileiros (seeds)"); o arquivo já está commitado (`65f7368`). Conferir `SELECT count(*) FROM foods WHERE external_id LIKE 'br-dish-%'` (esperado 176)
+- [ ] Pratos brasileiros, teste no aparelho: buscar "camarão internacional", "pingado", "picanha" e "biro-biro"; registrar um item e conferir o rótulo da porção e as calorias (camarão internacional ≈ 672 kcal); ver se os pratos aparecem antes dos itens soltos da TACO; ver se o app trata `source='custom'` como alimento criado pelo usuário (editar/remover, selo, etc.)
 - [ ] Primeira geração real com a Claude (onboarding e foto): conferir qualidade do prompt (`onboarding/plan-generator.ts`, `ai-service/app/vision.py`), custo e latência
 - [ ] Limpar exercícios de teste do banco local ("Supino 562029", "Agachamento 562029")
 
@@ -82,6 +86,10 @@ Limites: **gratuito** = 10 fotos a cada 30 dias + 1 plano de treino por IA a cad
 4. [x] Limite provisório em memória do onboarding substituído pelas cotas (banco)
 
 ## Backlog técnico
+- Catálogo de pratos brasileiros: próximo id `br-dish-177`. Ideia de lote de petiscos de boteco (bolinho de aipim com carne seca, bolinho de feijoada, pastel de angu, ovinhos de codorna)
+- Pratos brasileiros: revisar os valores estimados no portal (filtro `external_id LIKE 'br-dish-%'`); todos estão em "Alimentos preparados"; o álcool de cerveja, caipirinha e vinho não cabe nas colunas de macros (kcal do álcool fica de fora ou embutida)
+- Pratos brasileiros: se o app tratar `source='custom'` de forma especial, criar migration com `source` próprio (ex.: `curated`) em `foods_source_check`
+- Pratos brasileiros: conferir se grafias alternativas ("biri biru") são achadas pela busca por trigramas
 - Trava de requisição simultânea por usuário (`quotas.middleware.ts`) é em memória; migrar para Redis ao rodar mais de uma instância da API
 - Limite de uso dos convites (`invites`) e do aceite também é em memória (`backend/src/shared/rate-limit.ts`); mesma migração para Redis
 - Fora das cotas do aluno: `POST /trainer/students/:id/suggest-plan` (cooldown próprio de 30 s do professor, em memória)

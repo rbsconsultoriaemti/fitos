@@ -51,6 +51,15 @@ Produção: containers Docker (API e ai-service) atrás do Traefik numa VPS; ver
 | `npm run migrate:create -- nome` | Cria nova migration SQL |
 | `npm run test:quotas`, `test:onboarding`, `test:trainer`, `test:recognize` … | Testes ponta a ponta (ver `scripts/` e `package.json`; precisam de banco local) |
 
+## Seeds
+
+Em `backend/` (rodar depois das migrations; todos idempotentes):
+
+- TACO (590 alimentos): `npm run seed:taco`
+- Porções caseiras da TACO: `npm run seed:portions`
+- Exercícios: `npx tsx src/database/seeds/run-sql.ts exercises.sql`
+- Pratos brasileiros (176 itens, `source='custom'`): arquivos `src/database/seeds/brazilian-dishes-0*.sql`, em ordem, com `psql -v ON_ERROR_STOP=1 -f` ou `run-sql.ts <arquivo>`. Ver CLAUDE.md ("Catálogo de pratos brasileiros") e DEPLOY_VPS.md
+
 ## Migrations
 
 Ficam em `backend/src/database/migrations/` (SQL puro, via `node-pg-migrate`, seções `-- Up Migration` / `-- Down Migration`). São 19 (de `001_create-users` a `019_food-preferences`): usuários, perfis, assinaturas, convites, vínculos profissional→aluno, musculação, nutrição, onboarding, água, cotas e preferências alimentares. A lista completa está na pasta.
