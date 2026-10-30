@@ -6,12 +6,13 @@ import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { DaySummary } from '@/components/day-summary';
 import { EnergyCard } from '@/components/energy-card';
 import { ApplyFavoriteModal, SaveFavoriteModal } from '@/components/favorites';
+import { FoodPickerModal, type Serving } from '@/components/food-picker';
 import { Button, Card, ErrorText, Separator, T } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { confirm, errorMessage, notify } from '@/lib/dialog';
 import { addDays, dateLabel, fmt0, foodLabel, localDate, MEAL_LABELS, MEAL_ORDER } from '@/lib/format';
 import { addFoodLogs, getPendingFoodLogs, isOffline, loadDay, loadTemplates, syncPendingFoodLogs, syncPendingLogs, type PendingFoodLog } from '@/lib/offline';
-import type { DayLog, LogEntry, MealTemplate, MealType } from '@/lib/types';
+import type { DayLog, Food, LogEntry, MealTemplate, MealType } from '@/lib/types';
 import { space, useColors } from '@/theme';
 
 const quantityText = (e: LogEntry) =>
@@ -71,7 +72,30 @@ export default function Nutrition() {
     }
   }
 
-  const add = (meal: MealType) => router.push(`/food/search?meal=${meal}&date=${date}` as never);
+  const [addTo, setAddTo] = useState<MealType | null>(null); // refeição que recebe o alimento escolhido no painel de busca
+
+  const add = (meal: MealType) => setAddTo(meal);
+
+  /** Registra o alimento escolhido na refeição aberta (com rede grava direto; sem rede, vai para a fila do aparelho). */
+  async function addFoodTo(food: Food, serving: Serving): Promise<string | null> {
+    if (!addTo) return 'Refeição não encontrada.';
+    const { grams, portion } = serving;
+    try {
+      const item = portion
+        ? { foodId: food.id, mealType: addTo, portion }
+        : { foodId: food.id, mealType: addTo, quantityG: grams };
+      const { queued } = await addFoodLogs(
+        [{ item, preview: { name: foodLabel(food), mealType: addTo, grams, kcal: (food.kcalPer100g * grams) / 100 } }],
+        date,
+        localDate(),
+      );
+      if (queued) notify('Salvo no aparelho', 'Sem conexão: o alimento será enviado quando houver internet.');
+      await load(date);
+      return null;
+    } catch (err) {
+      return errorMessage(err);
+    }
+  }
 
   const saveMeal = saveFor ? day?.meals.find((m) => m.type === saveFor) : undefined;
 
@@ -244,6 +268,7 @@ export default function Nutrition() {
         );
       })}
 
+      <FoodPickerModal visible={addTo !== null} onClose={() => setAddTo(null)} onConfirm={addFoodTo} />
       <SaveFavoriteModal
         visible={saveFor !== null}
         mealLabel={saveFor ? MEAL_LABELS[saveFor] : ''}

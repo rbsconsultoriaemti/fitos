@@ -83,6 +83,12 @@ export function fromSuggestion(
 
 export const emptyDay = (dayOfWeek: number): EditDay => ({ key: nextKey(), dayOfWeek, muscleGroup: '', notes: '', sets: [] });
 
+/** Série nova para o exercício escolhido, com os mesmos valores padrão do editor (força ou cardio). */
+export function newEditSet(e: Exercise): EditSet {
+  const cardio = e.category === 'cardio';
+  return { key: nextKey(), exercise: { id: e.id, name: e.name, category: e.category }, sets: cardio ? '1' : '3', reps: cardio ? '' : '10', load: '', rest: cardio ? '' : '60', duration: cardio ? '30' : '', distance: '' };
+}
+
 /** Valida e converte um dia para o corpo da API; devolve a mensagem de erro se algo estiver inválido. */
 export function toBody(day: EditDay): { error: string } | { body: object } {
   if (day.muscleGroup.trim().length < 2) return { error: `${WEEKDAYS[day.dayOfWeek - 1]}: dê um nome ao treino (ex.: Superiores).` };
@@ -278,7 +284,7 @@ function IconButton({ name, onPress, disabled, label }: { name: 'chevron-up' | '
   );
 }
 
-function ExercisePicker({ visible, catalog, onClose, onPick }: { visible: boolean; catalog: Exercise[]; onClose: () => void; onPick: (e: Exercise) => void }) {
+export function ExercisePicker({ visible, catalog, onClose, onPick }: { visible: boolean; catalog: Exercise[]; onClose: () => void; onPick: (e: Exercise) => void }) {
   const insets = useSafeAreaInsets();
   const c = useColors();
   const [q, setQ] = useState('');

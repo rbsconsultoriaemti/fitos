@@ -5,12 +5,13 @@ import { Modal, Pressable, RefreshControl, ScrollView, TextInput, Vibration, Vie
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExerciseMedia } from '@/components/exercise-media';
+import { ExercisePicker, fromPlan, newEditSet, toBody } from '@/components/plan-editor';
 import { Button, Card, Chip, Empty, ErrorText, T } from '@/components/ui';
 import { errorMessage, notify } from '@/lib/dialog';
 import { isoWeekday, mmss, parseDecimal, WEEKDAYS } from '@/lib/format';
 import { consumePlanStale, getDraft, isOffline, loadActivePlan, queueLog, setDraft, syncPendingLogs, type PendingLog } from '@/lib/offline';
 import { api } from '@/lib/api';
-import type { WorkoutPlan, WorkoutSet } from '@/lib/types';
+import type { Exercise, WorkoutPlan, WorkoutSet } from '@/lib/types';
 import { radius, space, useColors } from '@/theme';
 
 // A API guarda UMA carga e UMA contagem de reps por exercício (set_logs), não por série:
@@ -51,6 +52,9 @@ export default function Workout() {
   const [refreshing, setRefreshing] = useState(false);
   const [offline, setOffline] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [catalog, setCatalog] = useState<Exercise[]>([]);
+  const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -191,6 +195,41 @@ export default function Workout() {
     }
   };
 
+  const openPicker = async () => {
+    setPickerOpen(true);
+    if (catalog.length > 0) return;
+    try {
+      setCatalog(await api<Exercise[]>('/workout/exercises'));
+    } catch (err) {
+      setPickerOpen(false);
+      notify('Não foi possível carregar os exercícios', isOffline(err) ? 'Sem conexão.' : errorMessage(err));
+    }
+  };
+
+  /** Adiciona o exercício ao dia exibido e salva o plano na hora (mesma regra da tela Editar plano). */
+  const addExercise = async (e: Exercise) => {
+    setPickerOpen(false);
+    if (!plan || !day) return;
+    setAdding(true);
+    try {
+      const days = fromPlan(plan).map((d) => (d.dayOfWeek === day.dayOfWeek ? { ...d, sets: [...d.sets, newEditSet(e)] } : d));
+      const built = days.map(toBody);
+      const bad = built.find((b): b is { error: string } => 'error' in b);
+      if (bad) return notify('Não foi possível adicionar', bad.error);
+      await api(`/workout/plans/${plan.id}`, {
+        method: 'PUT',
+        body: { title: plan.title, durationWeeks: plan.durationWeeks ?? undefined, days: built.map((b) => (b as { body: object }).body) },
+      });
+      const { plan: fresh } = await loadActivePlan();
+      if (fresh) setPlan(fresh);
+      notify('Exercício adicionado', e.name);
+    } catch (err) {
+      notify('Não foi possível adicionar', isOffline(err) ? 'Sem conexão. Tente novamente quando houver sinal.' : errorMessage(err));
+    } finally {
+      setAdding(false);
+    }
+  };
+
   const refresh = async () => {
     setRefreshing(true);
     await load();
@@ -301,7 +340,12 @@ export default function Workout() {
             </Card>
           );
         })}
+        {plan.source !== 'trainer' ? (
+          <Button title="+ Adicionar exercício" kind="secondary" disabled={offline || adding} loading={adding} onPress={openPicker} />
+        ) : null}
       </ScrollView>
+
+      <ExercisePicker visible={pickerOpen} catalog={catalog} onClose={() => setPickerOpen(false)} onPick={addExercise} />
 
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: space.lg, gap: space.sm, backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.border }}>
         {rest !== null ? (

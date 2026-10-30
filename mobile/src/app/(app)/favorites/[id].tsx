@@ -1,16 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Card, Chip, ErrorText, Input, T } from '@/components/ui';
 import { api } from '@/lib/api';
 import { confirm, errorMessage, notify } from '@/lib/dialog';
-import { consumePickedFood } from '@/lib/food-pick';
+import { FoodPickerModal, type Serving } from '@/components/food-picker';
 import { foodLabel, MEAL_LABELS, MEAL_ORDER, parseDecimal } from '@/lib/format';
 import { isOffline, loadTemplates } from '@/lib/offline';
-import type { MealTemplate, MealType } from '@/lib/types';
+import type { Food, MealTemplate, MealType } from '@/lib/types';
 import { space, useColors } from '@/theme';
 
 interface Row {
@@ -49,15 +49,16 @@ export default function EditFavorite() {
       .catch((err) => setError(errorMessage(err)));
   }, [id]);
 
-  // Voltando da busca ("+ Adicionar alimento"): entra com 100 g.
-  useFocusEffect(
-    useCallback(() => {
-      const food = consumePickedFood();
-      if (food) setRows((rs) => [...rs, { key: `new-${Date.now()}`, foodId: food.id, label: foodLabel(food), grams: '100' }]);
-    }, []),
-  );
+  const [adding, setAdding] = useState(false);
 
   const setGrams = (key: string, grams: string) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, grams } : r)));
+
+  /** Recebe o alimento escolhido no painel de busca (entra com a quantidade informada ali). */
+  async function addFood(food: Food, serving: Serving): Promise<string | null> {
+    // A favorita guarda gramas; porção caseira entra como o total em gramas.
+    setRows((rs) => [...rs, { key: `new-${Date.now()}`, foodId: food.id, label: foodLabel(food), grams: String(serving.grams).replace('.', ',') }]);
+    return null;
+  }
 
   async function save() {
     setError(null);
@@ -123,7 +124,7 @@ export default function EditFavorite() {
                 <Input label="Quantidade (g)" value={r.grams} onChangeText={(v) => setGrams(r.key, v)} keyboardType="decimal-pad" />
               </Card>
             ))}
-            <Button title="+ Adicionar alimento" kind="secondary" onPress={() => router.push('/food/search?mode=pick' as never)} />
+            <Button title="+ Adicionar alimento" kind="secondary" onPress={() => setAdding(true)} />
           </View>
         </>
       ) : null}
@@ -135,6 +136,7 @@ export default function EditFavorite() {
           <Button title="Excluir favorita" kind="danger" onPress={remove} disabled={saving} />
         </>
       ) : null}
+      <FoodPickerModal visible={adding} onClose={() => setAdding(false)} onConfirm={addFood} />
     </ScrollView>
   );
 }
