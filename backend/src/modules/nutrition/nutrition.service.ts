@@ -343,6 +343,9 @@ export async function createPlan(auth: Auth, input: CreatePlanInput) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    if (source === 'self') {
+      await client.query(`UPDATE diet_plans SET status = 'archived' WHERE patient_id = $1 AND source = 'self' AND status = 'active'`, [patientId]);
+    }
     const { rows } = await client.query<PlanRow>(
       `INSERT INTO diet_plans (patient_id, prescribed_by, title, source, status,
                                target_kcal, target_protein_g, target_carb_g, target_fat_g)
@@ -368,6 +371,22 @@ export async function createPlan(auth: Auth, input: CreatePlanInput) {
   } finally {
     client.release();
   }
+}
+
+/** Plano ativo do aluno (nutricionista > próprio > IA) e o próprio plano, se houver. */
+export async function getActivePlan(auth: Auth) {
+  const { rows: active } = await pool.query<PlanRow>(
+    `SELECT * FROM diet_plans WHERE patient_id = $1 AND status = 'active' ORDER BY ${ACTIVE_PLAN_ORDER} LIMIT 1`,
+    [auth.sub],
+  );
+  const { rows: own } = await pool.query<PlanRow>(
+    `SELECT * FROM diet_plans WHERE patient_id = $1 AND source = 'self' AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
+    [auth.sub],
+  );
+  return {
+    active: active[0] ? await buildPlan(active[0]) : null,
+    own: own[0] ? await buildPlan(own[0]) : null,
+  };
 }
 
 export async function getPlan(auth: Auth, id: string) {
@@ -419,8 +438,12 @@ export async function updatePlan(auth: Auth, id: string, content: PlanContent) {
     const { rows } = await client.query<PlanRow>('SELECT * FROM diet_plans WHERE id = $1 FOR UPDATE', [id]);
     const plan = rows[0];
     if (!plan) throw notFound('Plano');
-    assertPrescriber(auth, plan);
-    if (plan.status !== 'draft') throw new AppError(409, 'plan_not_draft', 'Só rascunhos podem ser editados');
+    if (isOwnSelfPlan(auth, plan)) {
+      if (plan.status !== 'active') throw new AppError(409, 'plan_archived', 'Este plano não está ativo');
+    } else {
+      assertPrescriber(auth, plan);
+      if (plan.status !== 'draft') throw new AppError(409, 'plan_not_draft', 'Só rascunhos podem ser editados');
+    }
 
     await client.query(
       `UPDATE diet_plans
@@ -645,6 +668,10 @@ export async function updateLog(auth: Auth, id: string, input: UpdateLogInput) {
 
 const MACRO_KEYS = ['kcal', 'proteinG', 'carbG', 'fatG'] as const;
 
+/** Prioridade do plano ativo: o do nutricionista vence o próprio, que vence o da IA; empate: o mais recente. */
+const ACTIVE_PLAN_ORDER = "CASE source WHEN 'nutritionist' THEN 0 WHEN 'self' THEN 1 ELSE 2 END, created_at DESC";
+const isOwnSelfPlan = (auth: Auth, plan: PlanRow) => plan.source === 'self' && plan.patient_id === auth.sub;
+
 /**
  * Resumo do dia (fuso de config.timezone): itens agrupados por refeição (café, lanche da manhã, almoço, lanche da tarde, jantar),
  * totais, e consumido × meta × quanto falta, quando há plano ativo com metas.
@@ -668,7 +695,7 @@ export async function getDayLog(auth: Auth, filter: { date?: string; userId?: st
   const totals = sumMacros(entries);
 
   const { rows: plans } = await pool.query<PlanRow>(
-    `SELECT * FROM diet_plans WHERE patient_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
+    `SELECT * FROM diet_plans WHERE patient_id = $1 AND status = 'active' ORDER BY ${ACTIVE_PLAN_ORDER} LIMIT 1`,
     [userId],
   );
   const plan = plans[0];

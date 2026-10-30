@@ -52,6 +52,8 @@ export default function AppLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="edit-plan" options={{ title: 'Editar plano' }} />
+      <Stack.Screen name="diet/index" options={{ title: 'Minha dieta' }} />
+      <Stack.Screen name="diet/edit" options={{ title: 'Plano alimentar' }} />
       <Stack.Screen name="food/search" options={{ title: 'Adicionar alimento' }} />
       <Stack.Screen name="food/barcode" options={{ title: 'Código de barras' }} />
       <Stack.Screen name="food/quantity" options={{ title: 'Quantidade' }} />

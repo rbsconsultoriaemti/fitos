@@ -186,6 +186,15 @@ export default function Nutrition() {
         />
       }
     >
+      <Pressable accessibilityRole="button" onPress={() => router.push('/diet' as never)} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+          <View style={{ flex: 1 }}>
+            <T variant="h2">Minha dieta</T>
+            <T variant="muted">Ver o plano alimentar ou montar o seu</T>
+          </View>
+          <Ionicons name="chevron-forward" size={22} color={c.muted} />
+        </Card>
+      </Pressable>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable accessibilityLabel="Dia anterior" hitSlop={12} onPress={() => go(addDays(date, -1))}>
           <Ionicons name="chevron-back" size={26} color={c.text} />

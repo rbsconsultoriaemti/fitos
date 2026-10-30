@@ -88,6 +88,12 @@ nutritionRouter.get(
   }),
 );
 nutritionRouter.get(
+  '/plans/active',
+  wrap(async (req, res) => {
+    res.json(await service.getActivePlan(req.auth!));
+  }),
+);
+nutritionRouter.get(
   '/plans/:id',
   wrap(async (req, res) => {
     res.json(await service.getPlan(req.auth!, idParam.parse(req.params).id));

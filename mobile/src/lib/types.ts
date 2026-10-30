@@ -256,6 +256,47 @@ export interface MealTemplate {
   totals: Macros;
 }
 
+// ---------- plano alimentar ----------
+
+export type DietPlanSource = 'nutritionist' | 'self' | 'ai';
+
+export interface DietFood {
+  id: string;
+  food: { id: string; name: string; displayName?: string };
+  quantityG: number;
+  kcal: number;
+  proteinG: number;
+  carbG: number;
+  fatG: number;
+}
+
+export interface DietMeal {
+  id: string;
+  name: string;
+  order: number;
+  timeSuggestion: string | null;
+  foods: DietFood[];
+}
+
+export interface DietPlan {
+  id: string;
+  patientId: string;
+  prescribedBy: string | null;
+  title: string;
+  source: DietPlanSource;
+  status: 'draft' | 'active' | 'archived';
+  targets: { kcal: number | null; proteinG: number | null; carbG: number | null; fatG: number | null };
+  totals: Macros;
+  createdAt: string;
+  meals: DietMeal[];
+}
+
+/** GET /nutrition/plans/active: o plano em uso (nutricionista > próprio > IA) e o próprio plano, se houver. */
+export interface ActiveDietPlans {
+  active: DietPlan | null;
+  own: DietPlan | null;
+}
+
 // ---------- painel do professor ----------
 
 export type TodayStatus = 'trained' | 'pending' | 'rest' | 'no_plan';
