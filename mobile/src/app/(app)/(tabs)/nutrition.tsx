@@ -7,6 +7,7 @@ import { DaySummary } from '@/components/day-summary';
 import { EnergyCard } from '@/components/energy-card';
 import { ApplyFavoriteModal, SaveFavoriteModal } from '@/components/favorites';
 import { FoodPickerModal, type Serving } from '@/components/food-picker';
+import { byFrequency, habitualFor } from '@/lib/habitual';
 import { Button, Card, ErrorText, Separator, T } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { confirm, errorMessage, notify } from '@/lib/dialog';
@@ -124,11 +125,9 @@ export default function Nutrition() {
   }
 
   /** Registra todos os alimentos da favorita na refeição escolhida (funciona offline: entra na fila). */
-  async function applyFavorite(t: MealTemplate): Promise<string | null> {
-    if (!applyFor) return null;
+  async function applyFavoriteTo(t: MealTemplate, mealType: MealType): Promise<string | null> {
     try {
       const today = localDate();
-      const mealType = applyFor;
       const { queued } = await addFoodLogs(
         t.items.map((i) => ({
           item: i.portion
@@ -141,11 +140,24 @@ export default function Nutrition() {
       );
       setApplyFor(null);
       if (queued) notify('Salvo no aparelho', 'Sem conexão: os alimentos serão enviados quando houver internet.');
+      else api(`/nutrition/templates/${t.id}/used`, { method: 'POST' }).catch(() => undefined); // conta a frequência (offline não conta)
       await load(date);
       return null;
     } catch (err) {
       return errorMessage(err);
     }
+  }
+
+  /** Favorita escolhida no painel de Favoritas (a refeição é a que está aberta: applyFor). */
+  function applyFavorite(t: MealTemplate): Promise<string | null> {
+    if (!applyFor) return Promise.resolve(null);
+    return applyFavoriteTo(t, applyFor);
+  }
+
+  /** Registra a favorita habitual de uma refeição vazia, com um toque. */
+  async function applyHabitual(t: MealTemplate, type: MealType) {
+    const err = await applyFavoriteTo(t, type);
+    if (err) notify('Não foi possível registrar', err);
   }
 
   async function deleteFavorite(t: MealTemplate) {
@@ -231,6 +243,7 @@ export default function Nutrition() {
       {MEAL_ORDER.map((type) => {
         const meal = day?.meals.find((m) => m.type === type);
         const hasEntries = !!meal && meal.entries.length > 0;
+        const habitual = hasEntries ? null : habitualFor(templates, type);
         return (
           <Card key={type} style={{ gap: space.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -258,6 +271,18 @@ export default function Nutrition() {
               </View>
             ))}
             {meal && !hasEntries ? <T variant="muted">Nada registrado.</T> : null}
+            {habitual ? (
+              <Card style={{ gap: space.sm, backgroundColor: c.primarySoft }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+                  <View style={{ flex: 1 }}>
+                    <T variant="muted">Habitual nesta refeição</T>
+                    <T variant="h2">{habitual.name}</T>
+                    <T variant="muted">{`${fmt0(habitual.totals.kcal)} kcal · registrada ${habitual.useCount}×`}</T>
+                  </View>
+                  <Button title="Registrar" kind="secondary" onPress={() => applyHabitual(habitual, type)} />
+                </View>
+              </Card>
+            ) : null}
             <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' }}>
               {hasEntries ? (
                 <Button title="★ Salvar como favorita" kind="ghost" disabled={offline} onPress={() => setSaveFor(type)} />
@@ -280,7 +305,7 @@ export default function Nutrition() {
       <ApplyFavoriteModal
         visible={applyFor !== null}
         mealLabel={applyFor ? MEAL_LABELS[applyFor] : ''}
-        templates={templates}
+        templates={byFrequency(templates)}
         offline={offline}
         onApply={applyFavorite}
         onDelete={deleteFavorite}

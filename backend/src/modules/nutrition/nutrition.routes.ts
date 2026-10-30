@@ -223,6 +223,13 @@ nutritionRouter.post(
     res.status(201).json(await templates.applyTemplate(req.auth!, idParam.parse(req.params).id, applyTemplateSchema.parse(req.body ?? {})));
   }),
 );
+nutritionRouter.post(
+  '/templates/:id/used',
+  wrap(async (req, res) => {
+    await templates.markTemplateUsed(req.auth!, idParam.parse(req.params).id);
+    res.status(204).end();
+  }),
+);
 nutritionRouter.put(
   '/templates/:id',
   wrap(async (req, res) => {

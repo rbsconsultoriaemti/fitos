@@ -19,6 +19,8 @@ interface TemplateRow {
   meal_type: string | null;
   items: StoredItem[];
   created_at: Date;
+  use_count: number;
+  last_used_at: Date | null;
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -45,7 +47,7 @@ export async function createTemplate(auth: Auth, input: CreateTemplateInput) {
 /** Favoritas do usuário, com nome, quantidade e macros de cada alimento. */
 export async function listTemplates(auth: Auth) {
   const { rows } = await pool.query<TemplateRow>(
-    'SELECT id, name, meal_type, items, created_at FROM meal_templates WHERE user_id = $1 ORDER BY created_at DESC',
+    'SELECT id, name, meal_type, items, created_at, use_count, last_used_at FROM meal_templates WHERE user_id = $1 ORDER BY created_at DESC',
     [auth.sub],
   );
   const foodIds = [...new Set(rows.flatMap((t) => t.items.map((i) => i.foodId)))];
@@ -85,6 +87,8 @@ export async function listTemplates(auth: Auth) {
       mealType: t.meal_type,
       items,
       totals: { kcal: sum('kcal'), proteinG: sum('proteinG'), carbG: sum('carbG'), fatG: sum('fatG') },
+      useCount: t.use_count,
+      lastUsedAt: t.last_used_at ? t.last_used_at.toISOString() : null,
     };
   });
 }
@@ -101,11 +105,22 @@ export async function applyTemplate(auth: Auth, id: string, input: ApplyTemplate
   const mealType = input.mealType ?? (template.meal_type as CreateTemplateInput['mealType']);
   if (!mealType) throw new AppError(400, 'meal_required', 'Informe a refeição (mealType)');
 
-  return createLogs(auth, {
+  const result = await createLogs(auth, {
     items: template.items.map((i) => ({ ...i, mealType })),
     loggedAt: input.loggedAt,
     recognitionSource: 'manual',
   });
+  await markTemplateUsed(auth, id);
+  return result;
+}
+
+/** Conta um uso da favorita (alimenta a sugestão "habitual" da refeição vazia). Só a dona; outro usuário ou id inexistente => 404. */
+export async function markTemplateUsed(auth: Auth, id: string) {
+  const { rowCount } = await pool.query(
+    'UPDATE meal_templates SET use_count = use_count + 1, last_used_at = now() WHERE id = $1 AND user_id = $2',
+    [id, auth.sub],
+  );
+  if (!rowCount) throw notFound();
 }
 
 /** Edita a favorita (nome, refeição e itens). Só a dona pode: id de outro usuário responde 404, como se não existisse. */

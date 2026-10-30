@@ -243,6 +243,8 @@ export interface MealTemplate {
   id: string;
   name: string;
   mealType: MealType | null;
+  useCount: number; // quantas vezes foi registrada (sugestão "habitual")
+  lastUsedAt: string | null;
   items: {
     foodId: string;
     name: string;
