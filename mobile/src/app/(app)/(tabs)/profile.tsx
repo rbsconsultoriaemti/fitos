@@ -1,13 +1,14 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Switch, useColorScheme, View } from 'react-native';
 
 import { Button, Card, Chip, ErrorText, Input, T } from '@/components/ui';
 import { api } from '@/lib/api';
 import { errorMessage, notify } from '@/lib/dialog';
 import { fmt1, parseDecimal } from '@/lib/format';
+import { setThemeMode } from '@/lib/theme-mode';
 import type { Profile } from '@/lib/types';
-import { space } from '@/theme';
+import { space, useColors } from '@/theme';
 
 const SEXES = [
   { value: 'male', label: 'Masculino' },
@@ -79,6 +80,8 @@ function ageOf(iso: string | null): number | null {
 }
 
 export default function ProfileScreen() {
+  const c = useColors();
+  const isDark = useColorScheme() === 'dark';
   const [form, setForm] = useState<Form | null>(null);
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -245,6 +248,19 @@ export default function ProfileScreen() {
 
         <T variant="muted">Estes dados são sensíveis e ficam visíveis só para você.</T>
         <Button title="Salvar" onPress={save} loading={saving} />
+        <Card style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <T variant="h2">Modo escuro</T>
+            <T variant="muted">Troca o tema do app na hora e lembra da escolha.</T>
+          </View>
+          <Switch
+            accessibilityLabel="Modo escuro"
+            value={isDark}
+            onValueChange={(on) => void setThemeMode(on ? 'dark' : 'light')}
+            trackColor={{ false: c.track, true: c.primary }}
+          />
+        </Card>
+
         <T variant="h2">Alimentação</T>
         <Button title="Minhas preferências" kind="secondary" onPress={() => router.push('/settings/food-preferences' as never)} />
         <Button title="Alimentos favoritos" kind="secondary" onPress={() => router.push('/settings/favorite-foods' as never)} />

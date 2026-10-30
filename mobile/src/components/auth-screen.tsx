@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { T } from '@/components/ui';
@@ -26,9 +26,7 @@ export function AuthScreen({ title, subtitle, children }: { title: string; subti
         }}
       >
         <View style={{ gap: space.sm }}>
-          <T variant="title" style={{ color: c.primary }}>
-            FitOS
-          </T>
+          <Image source={require('../../assets/images/splash-icon.png')} style={{ width: 96, height: 96, alignSelf: 'center' }} resizeMode="contain" accessibilityLabel="Logo FitOS" />
           <T variant="h2">{title}</T>
           <T variant="muted">{subtitle}</T>
         </View>

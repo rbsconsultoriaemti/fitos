@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
 import { TrainerHome } from '@/components/trainer-home';
 import { DaySummary } from '@/components/day-summary';
@@ -62,6 +62,7 @@ function StudentHome() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md }}>
+        <Image source={require('../../../../assets/images/splash-icon.png')} style={{ width: 40, height: 37 }} resizeMode="contain" accessibilityLabel="Logo FitOS" />
         <View style={{ gap: 2, flex: 1 }}>
           <T variant="title">Olá, {user?.name.split(' ')[0]}</T>
           <T variant="muted">Resumo de hoje</T>

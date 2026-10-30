@@ -1,11 +1,17 @@
 import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 
+import { applyStoredThemeMode } from '@/lib/theme-mode';
 import { SessionProvider, useSession } from '@/session';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  useEffect(() => {
+    void applyStoredThemeMode();
+  }, []);
+
   return (
     <SessionProvider>
       <StatusBar style="auto" />

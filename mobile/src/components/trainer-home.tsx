@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Share, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, Share, View } from 'react-native';
 
 import { Button, Card, ErrorText, Input, Separator, T } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -117,9 +117,12 @@ export function TrainerHome() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={{ gap: 2 }}>
-        <T variant="title">Olá, {user?.name.split(' ')[0]}</T>
-        <T variant="muted">Seus alunos hoje</T>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+        <Image source={require('../../assets/images/splash-icon.png')} style={{ width: 40, height: 37 }} resizeMode="contain" accessibilityLabel="Logo FitOS" />
+        <View style={{ gap: 2, flex: 1 }}>
+          <T variant="title">Olá, {user?.name.split(' ')[0]}</T>
+          <T variant="muted">Seus alunos hoje</T>
+        </View>
       </View>
 
       <ErrorText>{error}</ErrorText>
