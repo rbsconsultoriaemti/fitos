@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { ZodError } from 'zod';
 import { pool } from './database/pool';
 import { authRouter } from './modules/auth/auth.routes';
+import { billingRouter } from './modules/billing/billing.routes';
 import { invitesRouter } from './modules/auth/invites.routes';
 import { nutritionRouter } from './modules/nutrition/nutrition.routes';
 import { onboardingRouter } from './modules/onboarding/onboarding.routes';
@@ -62,6 +63,7 @@ export function createApp() {
   app.use('/quotas', quotasRouter);
   app.use('/preferences', preferencesRouter);
   app.use('/portal', portalRouter);
+  app.use('/billing', billingRouter);
   // Próximos módulos entram aqui conforme forem construídos.
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

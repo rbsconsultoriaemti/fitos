@@ -34,6 +34,12 @@ export const config = {
     createPerHour: Number(process.env.INVITE_CREATE_PER_HOUR ?? 30),
     acceptPer15Min: Number(process.env.INVITE_ACCEPT_PER_15MIN ?? 20),
   },
+  // RevenueCat: o valor do cabeçalho Authorization é definido no painel do RevenueCat e precisa ser igual aqui.
+  // Sem essa variável todo webhook é recusado. Eventos de sandbox só concedem acesso se REVENUECAT_ACCEPT_SANDBOX=true (testes).
+  revenuecat: {
+    webhookAuth: process.env.REVENUECAT_WEBHOOK_AUTH ?? '',
+    acceptSandbox: process.env.REVENUECAT_ACCEPT_SANDBOX === 'true',
+  },
   jwt: {
     accessSecret: jwtAccessSecret,
     accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',

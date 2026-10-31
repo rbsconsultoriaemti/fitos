@@ -215,16 +215,18 @@ export async function rememberFood(food: Food) {
 }
 
 /** Busca na API; sem rede, procura entre os alimentos já vistos neste aparelho. */
-export async function searchFoods(q: string): Promise<{ foods: Food[]; offline: boolean }> {
+export async function searchFoods(q: string, opts: { glutenFree?: boolean } = {}): Promise<{ foods: Food[]; offline: boolean }> {
+  const filter = opts.glutenFree ? '&glutenFree=true' : '';
   try {
-    const foods = await api<Food[]>(`/nutrition/foods?q=${encodeURIComponent(q)}`);
+    const foods = await api<Food[]>(`/nutrition/foods?q=${encodeURIComponent(q)}${filter}`);
     await cacheFoods(foods);
     return { foods, offline: false };
   } catch (err) {
     if (!isOffline(err)) throw err;
     const tokens = normalize(q).split(/[^a-z0-9]+/).filter(Boolean);
     const all = Object.values((await read<Record<string, Food>>(FOODS_KEY)) ?? {});
-    return { foods: all.filter((f) => tokens.every((t) => normalize(f.name).includes(t))).slice(0, 50), offline: true };
+    const matches = all.filter((f) => tokens.every((t) => normalize(f.name).includes(t)) && (!opts.glutenFree || f.glutenFree === true));
+    return { foods: matches.slice(0, 50), offline: true };
   }
 }
 

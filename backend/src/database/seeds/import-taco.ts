@@ -12,11 +12,19 @@ interface TacoFood {
   fat: number | null;
 }
 
+type Override = Partial<Pick<TacoFood, 'kcal' | 'protein' | 'carb' | 'fat'>>;
+
 // Fonte: TACO 4ª ed. (NEPA/UNICAMP, 2011). Ver data/build-taco.mjs para como o JSON foi gerado.
 async function main() {
-  const file = path.resolve(__dirname, '../../../data/taco.json');
-  const all: TacoFood[] = JSON.parse(fs.readFileSync(file, 'utf8'));
-  const foods = all.filter((f) => [f.kcal, f.protein, f.carb, f.fat].every((v) => v !== null));
+  const dir = path.resolve(__dirname, '../../../data');
+  const all: TacoFood[] = JSON.parse(fs.readFileSync(path.join(dir, 'taco.json'), 'utf8'));
+  // Linhas que chegam sem macros no levantamento (ex.: leite integral) recebem valores de data/taco-overrides.json.
+  const overrides: Record<string, Override> = JSON.parse(fs.readFileSync(path.join(dir, 'taco-overrides.json'), 'utf8'));
+  const filled = all.map((f) => {
+    const o = overrides[String(f.tacoId)];
+    return o ? { ...f, kcal: f.kcal ?? o.kcal ?? null, protein: f.protein ?? o.protein ?? null, carb: f.carb ?? o.carb ?? null, fat: f.fat ?? o.fat ?? null } : f;
+  });
+  const foods = filled.filter((f) => [f.kcal, f.protein, f.carb, f.fat].every((v) => v !== null));
 
   for (const f of foods) {
     await pool.query(

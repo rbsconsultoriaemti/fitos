@@ -1,0 +1,7 @@
+{
+  "_aviso": "Valores complementares para linhas da TACO 4ª ed. que vêm sem macros no levantamento (data/build-taco.mjs as ignorava). Por 100 g/ml. Aproximados e DEVEM ser conferidos com a tabela oficial (NEPA/UNICAMP) antes da produção.",
+  "457": { "name": "Leite, de vaca, desnatado, UHT", "kcal": 35, "protein": 3.4, "carb": 4.9, "fat": 0.2 },
+  "458": { "name": "Leite, de vaca, integral", "kcal": 61, "protein": 3.2, "carb": 4.5, "fat": 3.3 },
+  "516": { "name": "Sal, dietético", "kcal": 0, "protein": 0, "carb": 0, "fat": 0 },
+  "517": { "name": "Sal, grosso", "kcal": 0, "protein": 0, "carb": 0, "fat": 0 }
+}

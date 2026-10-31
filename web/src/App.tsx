@@ -3,8 +3,11 @@ import { canInvite, ROLE_LABELS } from './api';
 import { AuthProvider, useAuth } from './auth';
 import Accept from './pages/Accept';
 import Home from './pages/Home';
+import Catalog from './pages/Catalog';
 import Invites from './pages/Invites';
 import Login from './pages/Login';
+import Metrics from './pages/Metrics';
+import Subscriptions from './pages/Subscriptions';
 import UserDetail from './pages/UserDetail';
 import Users from './pages/Users';
 import Validation from './pages/Validation';
@@ -36,6 +39,9 @@ function RequireAuth() {
               <>
                 <NavLink to="/usuarios">Usuários</NavLink>
                 <NavLink to="/validacao">Validação</NavLink>
+                <NavLink to="/assinaturas">Assinaturas</NavLink>
+                <NavLink to="/catalogo">Catálogo</NavLink>
+                <NavLink to="/metricas">Métricas</NavLink>
               </>
             ) : null}
             {canInvite(user) ? <NavLink to="/convites">Convites</NavLink> : null}
@@ -71,6 +77,9 @@ export default function App() {
             <Route path="/usuarios/:id" element={<UserDetail />} />
             <Route path="/validacao" element={<Validation />} />
             <Route path="/convites" element={<Invites />} />
+            <Route path="/assinaturas" element={<Subscriptions />} />
+            <Route path="/catalogo" element={<Catalog />} />
+            <Route path="/metricas" element={<Metrics />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

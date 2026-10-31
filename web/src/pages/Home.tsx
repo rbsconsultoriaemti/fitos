@@ -48,7 +48,7 @@ export default function Home() {
         <div className="card">
           <h2>Administração</h2>
           <p>
-            <Link to="/usuarios">Usuários e papéis</Link> · <Link to="/validacao">Validação de profissionais</Link> · <Link to="/convites">Convites</Link>
+            <Link to="/usuarios">Usuários e papéis</Link> · <Link to="/validacao">Validação de profissionais</Link> · <Link to="/convites">Convites</Link> · <Link to="/assinaturas">Assinaturas e cotas</Link> · <Link to="/catalogo">Catálogo</Link> · <Link to="/metricas">Métricas</Link>
           </p>
         </div>
       ) : null}

@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const listFoodsSchema = z.object({
   q: z.string().trim().max(120).optional(),
   category: z.string().trim().max(80).optional(),
+  // "true": só alimentos marcados como sem glúten.
+  glutenFree: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
 });
 
 const portionsSchema = z

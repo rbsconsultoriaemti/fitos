@@ -44,6 +44,7 @@ export function FoodPickerModal({
   const [grams, setGrams] = useState('100');
   const [portionLabel, setPortionLabel] = useState<string | null>(null);
   const [count, setCount] = useState('1');
+  const [glutenFree, setGlutenFree] = useState(false);
   const [saving, setSaving] = useState(false);
   const request = useRef(0);
 
@@ -55,6 +56,7 @@ export function FoodPickerModal({
     setMode('grams');
     setGrams('100');
     setCount('1');
+    setGlutenFree(false);
     setError(null);
     getRecentFoods().then(setRecent).catch(() => undefined);
   }, [visible]);
@@ -72,7 +74,7 @@ export function FoodPickerModal({
     setLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await searchFoods(term);
+        const res = await searchFoods(term, { glutenFree });
         if (id !== request.current) return;
         setFoods(res.foods);
         setError(null);
@@ -83,10 +85,10 @@ export function FoodPickerModal({
       }
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [q]);
+  }, [q, glutenFree]);
 
   const searching = q.trim().length >= 2;
-  const list = searching ? foods : recent;
+  const list = searching ? foods : glutenFree ? recent.filter((f) => f.glutenFree === true) : recent;
   const portion = chosen?.portions.find((p) => p.label === portionLabel) ?? null;
   const portionCount = parseDecimal(count);
   const totalGrams = mode === 'grams' ? parseDecimal(grams) : portion && portionCount ? portion.grams * portionCount : null;
@@ -158,6 +160,9 @@ export function FoodPickerModal({
                 autoCorrect={false}
                 returnKeyType="search"
               />
+              <View style={{ flexDirection: 'row' }}>
+                <Chip label="Sem glúten" selected={glutenFree} onPress={() => setGlutenFree((v) => !v)} />
+              </View>
               {!searching ? (
                 <T variant="muted">{recent.length > 0 ? 'Usados recentemente. Toque para escolher, ou digite para buscar outro.' : 'Digite ao menos 2 letras para buscar.'}</T>
               ) : null}

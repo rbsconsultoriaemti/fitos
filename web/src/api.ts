@@ -302,3 +302,93 @@ export interface PendingProfessional {
 export const listPendingProfessionals = (page: number) => api<Page<PendingProfessional>>(`/portal/admin/professionals/pending?page=${page}`);
 export const decideProfessional = (id: string, decision: 'validate' | 'reject') =>
   api<{ id: string; validationStatus: ValidationStatus }>(`/portal/admin/professionals/${id}/${decision}`, { method: 'POST', headers: PORTAL_WRITE });
+
+// ---- Métricas, assinaturas e catálogo (etapa 2) ----
+export interface Metrics {
+  generatedAt: string;
+  windowDays: number;
+  users: { total: number; active: number; students: number; professionals: number; pendingProfessionals: number; newInWindow: number };
+  activity: { activeInWindow: number; activeLast7Days: number };
+  usage: { photoRecognitions: number; workoutPlansByAi: number };
+  subscriptions: { premiumActive: number; trialing: number; pastDue: number };
+  aiCost: { costPerCallBrl: number; estimatedBrl: number; note: string };
+}
+
+export const getMetrics = (days: number) => api<Metrics>(`/portal/admin/metrics?days=${days}`);
+
+export interface QuotaView {
+  used: number;
+  limit: number;
+  remaining: number;
+  resetsAt: string | null;
+  plan: 'free' | 'paid';
+}
+
+export interface SubscriptionRow {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  isActive: boolean;
+  subscription: { plan: string; status: string; expiresAt: string | null; autoRenew: boolean | null; store: string | null; environment: string | null; productId: string | null } | null;
+  effectivePlan: 'free' | 'paid';
+  quotas: { photoRecognition: QuotaView; workoutPlan: QuotaView };
+}
+
+export const listSubscriptions = (q: string, page: number) =>
+  api<Page<SubscriptionRow>>(`/portal/admin/subscriptions?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page) })}`);
+
+export interface Portion {
+  label: string;
+  grams: number;
+}
+
+export interface CatalogFood {
+  id: string;
+  name: string;
+  displayName: string;
+  source: 'taco' | 'custom' | 'openfoodfacts';
+  category: string | null;
+  kcalPer100g: number;
+  proteinPer100g: number;
+  carbPer100g: number;
+  fatPer100g: number;
+  portions: Portion[];
+  glutenFree: boolean;
+  hidden: boolean;
+}
+
+export interface CatalogFilters {
+  q?: string;
+  page: number;
+  hidden?: boolean;
+  glutenFree?: boolean;
+}
+
+export const listCatalogFoods = (f: CatalogFilters) => {
+  const params = new URLSearchParams({ page: String(f.page) });
+  if (f.q) params.set('q', f.q);
+  if (f.hidden !== undefined) params.set('hidden', String(f.hidden));
+  if (f.glutenFree !== undefined) params.set('glutenFree', String(f.glutenFree));
+  return api<Page<CatalogFood>>(`/portal/admin/foods?${params}`);
+};
+
+export interface CatalogPatch {
+  glutenFree?: boolean;
+  hidden?: boolean;
+  portions?: Portion[];
+}
+
+export const patchCatalogFood = (id: string, body: CatalogPatch) =>
+  api<CatalogFood>(`/portal/admin/foods/${id}`, { method: 'PATCH', headers: PORTAL_WRITE, body: JSON.stringify(body) });
+
+export interface FoodAuditEntry {
+  id: string;
+  actorName: string | null;
+  action: string;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  createdAt: string;
+}
+
+export const listFoodAudit = (id: string) => api<{ items: FoodAuditEntry[] }>(`/portal/admin/foods/${id}/audit`);

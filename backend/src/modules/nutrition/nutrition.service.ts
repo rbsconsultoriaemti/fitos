@@ -38,7 +38,7 @@ async function canAccessPatient(auth: Auth, patientId: string) {
 
 export const foodCols = (a = '') => `${a}id, ${a}name, ${a}source, ${a}category, ${a}kcal_per_100g AS "kcalPer100g",
   ${a}protein_per_100g AS "proteinPer100g", ${a}carb_per_100g AS "carbPer100g", ${a}fat_per_100g AS "fatPer100g",
-  ${a}barcode, ${a}portions`;
+  ${a}barcode, ${a}portions, ${a}gluten_free AS "glutenFree"`;
 const FOOD_COLS = foodCols();
 
 interface Portion {
@@ -87,14 +87,18 @@ function rankByState<T extends { name: string; source: string; category: string 
  * Busca fuzzy: ignora acento e caixa, aceita as palavras em qualquer ordem e tolera erro de digitação
  * (trigram). Cada palavra precisa aparecer no nome ou ser parecida o bastante com algum trecho dele.
  */
-export async function listFoods(filter: { q?: string; category?: string }, userId?: string) {
+export async function listFoods(filter: { q?: string; category?: string; glutenFree?: boolean }, userId?: string) {
   const category = filter.category ?? null;
+  const glutenFree = filter.glutenFree ? true : null; // null = sem filtro
   // Preferências do questionário: "gosto" sobe, "não gosto" desce (nunca some). Sem preferências, nada muda.
   const prefs = userId ? await loadPreferences(userId) : null;
   if (!filter.q) {
     const { rows } = await pool.query(
-      `SELECT ${FOOD_COLS} FROM foods WHERE ($1::text IS NULL OR lower(category) = lower($1)) ORDER BY name LIMIT 50`,
-      [category],
+      `SELECT ${FOOD_COLS} FROM foods
+       WHERE ($1::text IS NULL OR lower(category) = lower($1))
+         AND ($2::boolean IS NULL OR gluten_free)
+       ORDER BY name LIMIT 50`,
+      [category, glutenFree],
     );
     return sortByPreference(rows, prefs, (r) => r.name as string).map(foodOut);
   }
@@ -108,6 +112,7 @@ export async function listFoods(filter: { q?: string; category?: string }, userI
      FROM foods f, q
      WHERE cardinality(q.toks) > 0
        AND ($2::text IS NULL OR lower(f.category) = lower($2))
+       AND ($3::boolean IS NULL OR f.gluten_free)
        AND (SELECT bool_and(f.name_search LIKE '%' || t || '%'
                             OR (length(t) >= 5 AND word_similarity(t, f.name_search) >= 0.6))
             FROM unnest(q.toks) t)
@@ -117,7 +122,7 @@ export async function listFoods(filter: { q?: string; category?: string }, userI
               word_similarity(q.s, f.name_search) DESC,
               length(f.name), f.name
      LIMIT 200`,
-    [filter.q, category],
+    [filter.q, category, glutenFree],
   );
   return sortByPreference(rankByState(rows, filter.q), prefs, (r) => r.name).slice(0, 50).map(foodOut);
 }

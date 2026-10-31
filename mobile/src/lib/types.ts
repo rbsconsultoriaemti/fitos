@@ -86,6 +86,8 @@ export interface Food {
   fatPer100g: number;
   portions: Portion[];
   barcode: string | null;
+  /** Marcado como naturalmente sem glúten (filtro "Sem glúten"). */
+  glutenFree?: boolean;
 }
 
 export interface Macros {

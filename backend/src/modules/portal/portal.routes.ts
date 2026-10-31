@@ -6,6 +6,8 @@ import { requireAuth } from '../auth/auth.middleware';
 import { loginSchema } from '../auth/auth.schemas';
 import * as auth from '../auth/auth.service';
 import { adminUsersRouter } from './admin-users.routes';
+import { adminReportsRouter } from './admin-reports.routes';
+import { adminCatalogRouter } from './admin-catalog.routes';
 import { invitesRouter, professionalsAdminRouter } from './invites.routes';
 import { requirePortalAccess, requirePortalHeader } from './portal.access';
 
@@ -86,3 +88,5 @@ portalRouter.get(
 portalRouter.use('/invites', invitesRouter);
 portalRouter.use('/admin/professionals', professionalsAdminRouter);
 portalRouter.use('/admin', adminUsersRouter);
+portalRouter.use('/admin', adminReportsRouter);
+portalRouter.use('/admin', adminCatalogRouter);

@@ -48,3 +48,16 @@ UPDATE foods SET portions = '[{"label":"copo","grams":200},{"label":"xícara","g
 
 UPDATE foods SET portions = '[{"label":"xícara de café","grams":50},{"label":"xícara","grams":240}]'::jsonb
  WHERE source = 'taco' AND name = 'Café, infusão 10%';
+
+-- Pães que faltavam (estimativas de uso comum, como as demais porções deste arquivo).
+UPDATE foods SET portions = '[{"label":"unidade","grams":50}]'::jsonb
+ WHERE source = 'taco' AND name = 'Pão, trigo, sovado';
+
+UPDATE foods SET portions = '[{"label":"unidade","grams":25}]'::jsonb
+ WHERE source = 'taco' AND name IN ('Pão, de queijo, assado', 'Pão, de queijo, cru');
+
+UPDATE foods SET portions = '[{"label":"unidade","grams":8}]'::jsonb
+ WHERE source = 'taco' AND name = 'Torrada, pão francês';
+
+UPDATE foods SET portions = '[{"label":"fatia","grams":25}]'::jsonb
+ WHERE source = 'taco' AND name = 'Pão, de soja';
