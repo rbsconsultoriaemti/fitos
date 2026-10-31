@@ -97,6 +97,7 @@ export async function listFoods(filter: { q?: string; category?: string; glutenF
       `SELECT ${FOOD_COLS} FROM foods
        WHERE ($1::text IS NULL OR lower(category) = lower($1))
          AND ($2::boolean IS NULL OR gluten_free)
+         AND NOT hidden
        ORDER BY name LIMIT 50`,
       [category, glutenFree],
     );
@@ -113,6 +114,7 @@ export async function listFoods(filter: { q?: string; category?: string; glutenF
      WHERE cardinality(q.toks) > 0
        AND ($2::text IS NULL OR lower(f.category) = lower($2))
        AND ($3::boolean IS NULL OR f.gluten_free)
+       AND NOT f.hidden
        AND (SELECT bool_and(f.name_search LIKE '%' || t || '%'
                             OR (length(t) >= 5 AND word_similarity(t, f.name_search) >= 0.6))
             FROM unnest(q.toks) t)

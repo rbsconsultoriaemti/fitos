@@ -7,7 +7,7 @@ export const listFoodsSchema = z.object({
   glutenFree: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
 });
 
-const portionsSchema = z
+export const portionsSchema = z
   .array(z.object({ label: z.string().trim().min(1).max(40), grams: z.number().positive().max(5000) }))
   .max(12)
   .refine((ps) => new Set(ps.map((p) => p.label.toLowerCase())).size === ps.length, 'Rótulo de porção repetido');
